@@ -1,0 +1,9 @@
+{
+  "_comment": "Edit this file to configure the dashboard for your FC.",
+  "warehouse_id": "CLE3",
+  "process_id": "100360",
+  "pt_target": 84,
+  "shift_default": "Night Shift (6p-6a)",
+  "_notes_comment": "Set shared_notes_path to a folder everyone can access (mapped drive or OneDrive path). Leave empty to use the shared_notes/ folder next to the app.",
+  "shared_notes_path": ""
+}
