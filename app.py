@@ -1,4 +1,4 @@
-"""
+﻿"""
 CLE3 Productive Time Dashboard
 Double-click run.bat or the Desktop shortcut to launch.
 """
@@ -10,10 +10,14 @@ from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import processor, fclm
+try:
+    import updater as _updater
+except ImportError:
+    _updater = None
 
 _CFG = fclm._CONFIG  # shared config (warehouse, pt_target, etc.)
 
-# ── Colors ────────────────────────────────────────────────────
+# â”€â”€ Colors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 BG      = "#0f1117"
 CARD    = "#1a1d27"
 BORDER  = "#2a2d3a"
@@ -40,9 +44,9 @@ def pt_tag(pt):
     return "dgreen"
 
 def pt_str(pt):
-    return f"{pt:.1f}%" if pt is not None else "—"
+    return f"{pt:.1f}%" if pt is not None else "â€”"
 
-# ── ttk dark style ────────────────────────────────────────────
+# â”€â”€ ttk dark style â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def apply_tree_style():
     s = ttk.Style()
     s.theme_use("clam")
@@ -59,7 +63,7 @@ def apply_tree_style():
         s.map(f"{name}.Heading",
             background=[("active", "#12141e")])
 
-# ── Main App ──────────────────────────────────────────────────
+# â”€â”€ Main App â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -71,16 +75,17 @@ class App(ctk.CTk):
         self.configure(fg_color=BG)
         apply_tree_style()
 
-        self._data       = {}   # date_key → processed data
+        self._data       = {}   # date_key â†’ processed data
         self._last_url   = ""
         self._build_ui()
+        self._check_for_updates()
 
-    # ─────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Auto-load last 7 PM report snapshot
-    # ─────────────────────────────────────────────────────────
-    # ─────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # UI Construction
-    # ─────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _build_ui(self):
         self._build_topbar()
         self._build_controls()
@@ -91,9 +96,9 @@ class App(ctk.CTk):
     def _build_topbar(self):
         bar = ctk.CTkFrame(self, fg_color=CARD, corner_radius=0, height=52)
         bar.pack(fill="x"); bar.pack_propagate(False)
-        ctk.CTkLabel(bar, text="●", text_color=ACCENT,
+        ctk.CTkLabel(bar, text="â—", text_color=ACCENT,
                      font=ctk.CTkFont(size=20)).pack(side="left", padx=(14,6), pady=0)
-        ctk.CTkLabel(bar, text="CLE3 · Productive Time Dashboard",
+        ctk.CTkLabel(bar, text="CLE3 Â· Productive Time Dashboard",
                      font=ctk.CTkFont(size=15, weight="bold"),
                      text_color=TEXT).pack(side="left")
         self._status_var = tk.StringVar(value="Select a date and shift, then click Get Data.")
@@ -143,7 +148,7 @@ class App(ctk.CTk):
                                          font=ctk.CTkFont(size=12, weight="bold"))
         self._fetch_btn.pack(side="left")
 
-        self._auto_btn = ctk.CTkButton(bar, text="⟳ Auto",
+        self._auto_btn = ctk.CTkButton(bar, text="âŸ³ Auto",
                                         command=self._toggle_autorefresh,
                                         width=80, height=32,
                                         fg_color=BORDER, hover_color="#3a3d4a",
@@ -165,8 +170,8 @@ class App(ctk.CTk):
                      font=ctk.CTkFont(size=11)).pack(side="left", padx=(2,0))
 
         # Color legend
-        for color, label in [(C_DGR,"≥90%"),(C_LGR,"85-89%"),(C_ORA,"80-84%"),(C_RED,"<80%")]:
-            ctk.CTkLabel(bar, text="■", text_color=color,
+        for color, label in [(C_DGR,"â‰¥90%"),(C_LGR,"85-89%"),(C_ORA,"80-84%"),(C_RED,"<80%")]:
+            ctk.CTkLabel(bar, text="â– ", text_color=color,
                          font=ctk.CTkFont(size=14)).pack(side="right", padx=(0,2))
             ctk.CTkLabel(bar, text=label, text_color=MUTED,
                          font=ctk.CTkFont(size=10)).pack(side="right", padx=(8,0))
@@ -189,7 +194,7 @@ class App(ctk.CTk):
         self._build_flagged_tab()
         self._build_wow_tab()
 
-    # ── AM Rankings Tab ───────────────────────────────────────
+    # â”€â”€ AM Rankings Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _build_am_tab(self):
         parent = self._tab.tab("AM Rankings")
         cols = ("Rank", "Area Manager", "Team PT%", "Inferred Hrs", "Total Hrs", "AAs", "Flagged")
@@ -197,7 +202,7 @@ class App(ctk.CTk):
         f = ctk.CTkFrame(parent, fg_color=BG, corner_radius=0)
         f.pack(fill="both", expand=True, padx=4, pady=4)
 
-        hint = ctk.CTkLabel(f, text="▶ Click an AM row to expand their associates",
+        hint = ctk.CTkLabel(f, text="â–¶ Click an AM row to expand their associates",
                             text_color=MUTED, font=ctk.CTkFont(size=11))
         hint.pack(anchor="w", padx=4, pady=(0,4))
 
@@ -222,7 +227,7 @@ class App(ctk.CTk):
             self._am_tree.tag_configure(tag, foreground=color)
         self._am_tree.tag_configure("assoc", foreground=MUTED, font=("Segoe UI", 9))
 
-    # ── Flagged Associates Tab ────────────────────────────────
+    # â”€â”€ Flagged Associates Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _build_flagged_tab(self):
         parent = self._tab.tab("Flagged Associates")
         cols = ("Badge ID", "Associate Name", "PT%", "Inferred Hrs", "Total Hrs", "Gap to Target")
@@ -230,7 +235,7 @@ class App(ctk.CTk):
         f = ctk.CTkFrame(parent, fg_color=BG, corner_radius=0)
         f.pack(fill="both", expand=True, padx=4, pady=4)
 
-        # ── Filter bar: manager dropdown + search + copy button ───
+        # â”€â”€ Filter bar: manager dropdown + search + copy button â”€â”€â”€
         mgr_bar = ctk.CTkFrame(f, fg_color=BG, corner_radius=0)
         mgr_bar.pack(fill="x", pady=(0, 2))
 
@@ -251,9 +256,9 @@ class App(ctk.CTk):
         self._flag_search_var.trace_add("write", lambda *_: self._refresh_flagged())
         ctk.CTkEntry(mgr_bar, textvariable=self._flag_search_var,
                      width=160, font=ctk.CTkFont(size=11),
-                     placeholder_text="name or badge…").pack(side="left", padx=(0, 10))
+                     placeholder_text="name or badgeâ€¦").pack(side="left", padx=(0, 10))
 
-        self._copy_btn = ctk.CTkButton(mgr_bar, text="📋 Copy List",
+        self._copy_btn = ctk.CTkButton(mgr_bar, text="ðŸ“‹ Copy List",
                                         command=self._copy_flagged,
                                         width=100, height=28,
                                         fg_color=BORDER, hover_color="#3a3d4a",
@@ -261,7 +266,7 @@ class App(ctk.CTk):
         self._copy_btn.pack(side="left")
 
         hint = ctk.CTkLabel(f,
-            text="▶ Click name → FCLM  ·  Right-click → History",
+            text="â–¶ Click name â†’ FCLM  Â·  Right-click â†’ History",
             text_color=MUTED, font=ctk.CTkFont(size=11))
         hint.pack(anchor="w", padx=4, pady=(4, 4))
 
@@ -290,7 +295,7 @@ class App(ctk.CTk):
         self._flag_tree.bind("<ButtonRelease-1>", self._on_flag_click)
         self._flag_tree.bind("<Button-3>",        self._on_flag_rightclick)
 
-    # ── Week-over-Week Tab ────────────────────────────────────
+    # â”€â”€ Week-over-Week Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _build_wow_tab(self):
         parent = self._tab.tab("Week-over-Week")
 
@@ -342,7 +347,7 @@ class App(ctk.CTk):
             ctk.CTkLabel(side, text=label, font=ctk.CTkFont(size=12, weight="bold"),
                          text_color=ACCENT).pack(anchor="w", padx=4, pady=(0,4))
 
-            cols = ("Manager", "PT%", "AAs", "Δ vs other")
+            cols = ("Manager", "PT%", "AAs", "Î” vs other")
             vsb  = ttk.Scrollbar(side, orient="vertical")
             vsb.pack(side="right", fill="y")
             t = ttk.Treeview(side, columns=cols, show="headings",
@@ -355,9 +360,9 @@ class App(ctk.CTk):
                 t.tag_configure(tag, foreground=color)
             self._wow_trees.append(t)
 
-    # ─────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Data Fetching
-    # ─────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _on_fetch(self):
         date  = self._date_var.get().strip()
         shift = self._shift_var.get()
@@ -365,8 +370,8 @@ class App(ctk.CTk):
         if not date or not wh:
             messagebox.showwarning("Missing Info", "Please enter a date and warehouse ID.")
             return
-        self._fetch_btn.configure(state="disabled", text="Fetching…")
-        self._set_status("Connecting to FCLM…")
+        self._fetch_btn.configure(state="disabled", text="Fetchingâ€¦")
+        self._set_status("Connecting to FCLMâ€¦")
         threading.Thread(target=self._fetch_thread,
                          args=(date, shift, wh, self._finish_main),
                          daemon=True).start()
@@ -394,7 +399,7 @@ class App(ctk.CTk):
         if getattr(self, '_autorefresh_on', False):
             self._autorefresh_job = self.after(15 * 60 * 1000, self._on_fetch)
             self._set_status(
-                self._status_var.get() + "  ·  next auto-refresh in 15 min")
+                self._status_var.get() + "  Â·  next auto-refresh in 15 min")
 
     def _on_wow_compare(self):
         d1    = self._wow_d1.get().strip()
@@ -402,8 +407,8 @@ class App(ctk.CTk):
         shift = self._wow_shift.get()
         wh    = self._wh_var.get().strip().upper()
         if not d1 or not d2: return
-        self._wow_btn.configure(state="disabled", text="Fetching…")
-        self._set_status(f"Fetching {d1} and {d2}…")
+        self._wow_btn.configure(state="disabled", text="Fetchingâ€¦")
+        self._set_status(f"Fetching {d1} and {d2}â€¦")
         threading.Thread(target=self._wow_thread,
                          args=(d1, d2, shift, wh), daemon=True).start()
 
@@ -424,17 +429,17 @@ class App(ctk.CTk):
                     results.append(None)
         self.after(0, self._render_wow, d1, d2, *results)
 
-    # ─────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Rendering
-    # ─────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _render(self, data, date, shift):
         self._build_cards(data)
         self._render_am(data)
         self._refresh_flagged(data)
         lbl = shift.split('(')[0].strip()
         self._set_status(
-            f"{lbl} · {date} · Overall PT: {pt_str(data['overall_pt'])} · "
-            f"{data['aa_count']} AAs · {data['flagged']} flagged")
+            f"{lbl} Â· {date} Â· Overall PT: {pt_str(data['overall_pt'])} Â· "
+            f"{data['aa_count']} AAs Â· {data['flagged']} flagged")
 
     def _build_cards(self, data):
         for w in self._cards_frame.winfo_children():
@@ -443,7 +448,7 @@ class App(ctk.CTk):
             ("Overall PT",    pt_str(data['overall_pt']), pt_color(data['overall_pt'])),
             ("Associates",    str(data['aa_count']),       TEXT),
             ("Flagged <84%",  str(data['flagged']),        C_ORA if data['flagged'] else C_DGR),
-            ("≥ 90%",         str(data['above_90']),       C_DGR),
+            ("â‰¥ 90%",         str(data['above_90']),       C_DGR),
             ("Managers",      str(len(data['managers'])),  TEXT),
             ("Inferred Hrs",  str(data['total_inferred']), C_ORA),
         ]
@@ -462,7 +467,7 @@ class App(ctk.CTk):
         tree = self._am_tree
         tree.delete(*tree.get_children())
         for i, mg in enumerate(data['managers']):
-            medal = ["🥇","🥈","🥉"][i] if i < 3 else str(i+1)
+            medal = ["ðŸ¥‡","ðŸ¥ˆ","ðŸ¥‰"][i] if i < 3 else str(i+1)
             tag   = pt_tag(mg['pt'])
             am_id = tree.insert("", "end", values=(
                 medal, mg['name'], pt_str(mg['pt']),
@@ -504,7 +509,7 @@ class App(ctk.CTk):
 
         if not flagged:
             tree.insert("", "end", values=(
-"✓ No associates flagged", "", "", "", "", ""), tags=("detail",))
+"âœ“ No associates flagged", "", "", "", "", ""), tags=("detail",))
             return
 
         from collections import defaultdict
@@ -541,7 +546,7 @@ class App(ctk.CTk):
                     iid=f"aa_{aa['id']}",
                     values=(aa['id'], aa['name'], pt_str(aa['pt']),
                             f"{aa['inferred']:.2f}", f"{aa['total']:.2f}",
-                            f"−{gap}%"),
+                            f"âˆ’{gap}%"),
                     tags=(pt_tag(aa['pt']),))
 
     def _render_wow(self, d1, d2, data1, data2):
@@ -553,7 +558,7 @@ class App(ctk.CTk):
             t = self._wow_trees[idx]
             t.delete(*t.get_children())
             if not data:
-                t.insert("", "end", values=("No data","—","—","—"))
+                t.insert("", "end", values=("No data","â€”","â€”","â€”"))
                 continue
             other = other_map[idx]
             other_by_name = {m['name']: m['pt'] for m in other['managers']} if other else {}
@@ -565,7 +570,7 @@ class App(ctk.CTk):
                     delta_str = f"+{delta}%" if delta >= 0 else f"{delta}%"
                     delta_tag = "lgreen" if delta > 0 else ("red" if delta < 0 else "na")
                 else:
-                    delta_str = "—"
+                    delta_str = "â€”"
                     delta_tag = "na"
                 row_id = t.insert("", "end", values=(
                     mg['name'], pt_str(mg['pt']), mg['aa_count'], delta_str
@@ -577,17 +582,17 @@ class App(ctk.CTk):
                     delta = round(data['overall_pt'] - other_overall, 1)
                     ds = f"+{delta}%" if delta >= 0 else f"{delta}%"
                 else:
-                    ds = "—"
+                    ds = "â€”"
                 t.insert("", "end", values=(
-                    f"── OVERALL ({label_map[idx]})",
+                    f"â”€â”€ OVERALL ({label_map[idx]})",
                     pt_str(data['overall_pt']), data['aa_count'], ds
                 ), tags=(pt_tag(data['overall_pt']),))
 
         self._set_status(f"Week-over-Week: {d1} vs {d2}")
 
-    # ─────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Events & Helpers
-    # ─────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _on_flag_click(self, event):
         item = self._flag_tree.identify_row(event.y)
         if not item: return
@@ -595,7 +600,7 @@ class App(ctk.CTk):
         # Only act on AA child rows (parent = a manager header row)
         parent = self._flag_tree.parent(item)
         if not parent:
-            return   # clicked a manager header — just expand/collapse, do nothing extra
+            return   # clicked a manager header â€” just expand/collapse, do nothing extra
 
         vals = self._flag_tree.item(item, "values")
         if not vals or not vals[0]:
@@ -608,25 +613,25 @@ class App(ctk.CTk):
         webbrowser.open(url)
         self._set_status(f"Opened time card for {name}  (badge: {badge})")
 
-    # ─────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Feature: Auto-refresh
-    # ─────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _toggle_autorefresh(self):
         if getattr(self, '_autorefresh_on', False):
             self._autorefresh_on = False
             if hasattr(self, '_autorefresh_job'):
                 self.after_cancel(self._autorefresh_job)
-            self._auto_btn.configure(text="⟳ Auto", fg_color=BORDER, text_color=MUTED)
+            self._auto_btn.configure(text="âŸ³ Auto", fg_color=BORDER, text_color=MUTED)
             self._set_status("Auto-refresh off.")
         else:
             self._autorefresh_on = True
-            self._auto_btn.configure(text="◉ Live", fg_color="#1a3a1a", text_color=C_LGR)
-            self._set_status("Auto-refresh on — fetching now…")
+            self._auto_btn.configure(text="â—‰ Live", fg_color="#1a3a1a", text_color=C_LGR)
+            self._set_status("Auto-refresh on â€” fetching nowâ€¦")
             self._on_fetch()
 
-    # ─────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Feature: Copy flagged list to clipboard
-    # ─────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _copy_flagged(self):
         key = self._last_data_key()
         if not key:
@@ -640,7 +645,7 @@ class App(ctk.CTk):
         flagged = [a for a in data['associates']
                    if a['pt'] is not None and a['pt'] < threshold]
         if not flagged:
-            self._set_status("Nothing to copy — no flagged associates.")
+            self._set_status("Nothing to copy â€” no flagged associates.")
             return
 
         from collections import defaultdict
@@ -651,8 +656,8 @@ class App(ctk.CTk):
             key=lambda m: sum(a['pt'] for a in by_mgr[m]) / len(by_mgr[m]))
 
         lines = [
-            f"CLE3 Flagged Associates — {shift_str.split('(')[0].strip()} · {date_str}",
-            "─" * 52,
+            f"CLE3 Flagged Associates â€” {shift_str.split('(')[0].strip()} Â· {date_str}",
+            "â”€" * 52,
         ]
         for mgr in sorted_mgrs:
             aa_list = sorted(by_mgr[mgr], key=lambda a: a['pt'])
@@ -664,10 +669,10 @@ class App(ctk.CTk):
                 parts = aa['name'].strip().split()
                 login = (parts[0][0] + parts[-1]).lower() if len(parts) >= 2 else aa['id']
                 lines.append(
-                    f"  · {aa['name']:<28} {login:<12} {pt_str(aa['pt']):<8} −{gap}%")
+                    f"  Â· {aa['name']:<28} {login:<12} {pt_str(aa['pt']):<8} âˆ’{gap}%")
         lines += [
-            "─" * 52,
-            f"Total: {len(flagged)} flagged  ·  Threshold: {int(threshold)}%",
+            "â”€" * 52,
+            f"Total: {len(flagged)} flagged  Â·  Threshold: {int(threshold)}%",
         ]
 
         text = "\n".join(lines)
@@ -675,9 +680,9 @@ class App(ctk.CTk):
         self.clipboard_append(text)
         self._set_status(f"Copied {len(flagged)} flagged associates to clipboard.")
 
-    # ─────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Feature: Right-click context menu on flagged rows
-    # ─────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _on_flag_rightclick(self, event):
         item = self._flag_tree.identify_row(event.y)
         if not item: return
@@ -692,19 +697,19 @@ class App(ctk.CTk):
         menu = tk.Menu(self, tearoff=0,
                        bg=CARD, fg=TEXT, activebackground=BORDER,
                        activeforeground=TEXT, relief="flat", bd=0)
-        menu.add_command(label=f"📈  View history for {name}",
+        menu.add_command(label=f"ðŸ“ˆ  View history for {name}",
                          command=lambda: self._show_history_popup(badge, name))
         menu.add_separator()
-        menu.add_command(label="🌐  Open in FCLM",
+        menu.add_command(label="ðŸŒ  Open in FCLM",
                          command=lambda: self._on_flag_click_badge(badge, name))
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:
             menu.grab_release()
 
-    # ─────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # Feature: Associate history drill-down popup
-    # ─────────────────────────────────────────────────────────
+    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _show_history_popup(self, badge, name):
         hist_path = os.path.join(os.path.expanduser("~"),
                                  ".pt_dashboard", "associate_history.json")
@@ -718,7 +723,7 @@ class App(ctk.CTk):
             entries = []
 
         win = tk.Toplevel(self)
-        win.title(f"History — {name}")
+        win.title(f"History â€” {name}")
         win.configure(bg=BG)
         win.geometry("480x400")
         win.resizable(True, True)
@@ -784,7 +789,7 @@ class App(ctk.CTk):
         # Only sort top-level rows
         items = [(tree.set(k, col), k) for k in tree.get_children("")]
         def key(x):
-            v = x[0].replace('%','').replace('🥇','0').replace('🥈','1').replace('🥉','2').strip()
+            v = x[0].replace('%','').replace('ðŸ¥‡','0').replace('ðŸ¥ˆ','1').replace('ðŸ¥‰','2').strip()
             try: return (0, float(v))
             except: return (1, v.lower())
         rev = getattr(tree, f'_sort_rev_{col}', False)
@@ -796,12 +801,23 @@ class App(ctk.CTk):
     def _set_status(self, msg):
         self._status_var.set(msg)
 
-# ─────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    def _check_for_updates(self):
+        if not _updater:
+            return
+        def _on_update(new_ver):
+            self.after(0, lambda: self._status_var.set(
+                f'Updated to v{new_ver} — restart the app to apply.'))
+        _updater.check(on_update_available=_on_update)
+
 # Entry Point
-# ─────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def main():
     app = App()
     app.mainloop()
 
 if __name__ == "__main__":
     main()
+
+
