@@ -1,4 +1,4 @@
-﻿"""
+"""
 CLE3 Productive Time Dashboard
 Double-click run.bat or the Desktop shortcut to launch.
 """
@@ -14,6 +14,10 @@ try:
     import updater as _updater
 except ImportError:
     _updater = None
+try:
+    import bmi as _bmi
+except ImportError:
+    _bmi = None
 
 _CFG = fclm._CONFIG  # shared config (warehouse, pt_target, etc.)
 
@@ -372,6 +376,7 @@ class App(ctk.CTk):
             return
         self._fetch_btn.configure(state="disabled", text="Fetchingâ€¦")
         self._set_status("Connecting to FCLMâ€¦")
+        self._current_wh = wh
         threading.Thread(target=self._fetch_thread,
                          args=(date, shift, wh, self._finish_main),
                          daemon=True).start()
@@ -388,18 +393,38 @@ class App(ctk.CTk):
             self.after(0, callback, date, shift, None, result['error'])
 
     def _finish_main(self, date, shift, data, error):
-        self._fetch_btn.configure(state="normal", text="Get Data")
         if error:
+            self._fetch_btn.configure(state="normal", text="Get Data")
             self._set_status(f"Error: {error}")
             messagebox.showerror("FCLM Error", error)
             if getattr(self, '_autorefresh_on', False):
                 self._autorefresh_job = self.after(15 * 60 * 1000, self._on_fetch)
             return
         self._render(data, date, shift)
+        # Chain to BMI fetch
+        if _bmi:
+            self._set_status("FCLM done · Fetching BMI metrics...")
+            wh = getattr(self, '_current_wh', 'CLE3')
+            threading.Thread(target=self._bmi_thread, args=(wh,), daemon=True).start()
+        else:
+            self._fetch_btn.configure(state="normal", text="Get Data")
+            if getattr(self, '_autorefresh_on', False):
+                self._autorefresh_job = self.after(15 * 60 * 1000, self._on_fetch)
+
+    def _bmi_thread(self, wh):
+        result = _bmi.fetch(wh, status_cb=lambda m: self.after(0, self._set_status, m))
+        self.after(0, self._finish_bmi, result)
+
+    def _finish_bmi(self, result):
+        if result.get('ok'):
+            self._build_cards_bmi(result)
+            pt = result['metrics'].get('Productive Time')
+            self._set_status(self._status_var.get() + f" · BMI PT: {pt}%")
+        else:
+            self._set_status(self._status_var.get() + f" · BMI unavailable")
+        self._fetch_btn.configure(state="normal", text="Get Data")
         if getattr(self, '_autorefresh_on', False):
             self._autorefresh_job = self.after(15 * 60 * 1000, self._on_fetch)
-            self._set_status(
-                self._status_var.get() + "  Â·  next auto-refresh in 15 min")
 
     def _on_wow_compare(self):
         d1    = self._wow_d1.get().strip()
@@ -442,13 +467,14 @@ class App(ctk.CTk):
             f"{data['aa_count']} AAs Â· {data['flagged']} flagged")
 
     def _build_cards(self, data):
+        """Temporary FCLM cards shown while BMI is loading."""
         for w in self._cards_frame.winfo_children():
             w.destroy()
         cards = [
             ("Overall PT",    pt_str(data['overall_pt']), pt_color(data['overall_pt'])),
             ("Associates",    str(data['aa_count']),       TEXT),
             ("Flagged <84%",  str(data['flagged']),        C_ORA if data['flagged'] else C_DGR),
-            ("â‰¥ 90%",         str(data['above_90']),       C_DGR),
+            ("≥ 90%",         str(data['above_90']),       C_DGR),
             ("Managers",      str(len(data['managers'])),  TEXT),
             ("Inferred Hrs",  str(data['total_inferred']), C_ORA),
         ]
@@ -463,6 +489,50 @@ class App(ctk.CTk):
                          font=ctk.CTkFont(size=24, weight="bold")).pack()
             ctk.CTkLabel(card, text=" ", font=ctk.CTkFont(size=6)).pack(pady=(0,8))
 
+    def _build_cards_bmi(self, bmi_data):
+        """Replace summary cards with live BMI facility metrics."""
+        for w in self._cards_frame.winfo_children():
+            w.destroy()
+        metrics = bmi_data.get('metrics', {})
+        rolling = bmi_data.get('rolling_7', {})
+        mtype   = bmi_data.get('metric_type', {})
+
+        # (label, key, use_rolling, invert_color)
+        card_defs = [
+            ("PT% Today",      "Productive Time", False, False),
+            ("PT% Rolling 7",  "Productive Time", True,  False),
+            ("Unknown Idle",   "Unknown Idle",    False, True),
+            ("Indirect",       "Indirect",        False, True),
+            ("Labor Move",     "Labor Move",      False, True),
+            ("Fast Start",     "Fast Start",      False, True),
+            ("Break",          "Break",           False, True),
+            ("Strong Finish",  "Strong Finish",   False, True),
+        ]
+
+        def _col(val, invert):
+            if val is None: return MUTED
+            if not invert:  # PT% higher = better
+                return C_DGR if val >= 70 else C_LGR if val >= 65 else C_ORA if val >= 58 else C_RED
+            else:           # hours lost lower = better
+                return C_DGR if val <= 3 else C_LGR if val <= 10 else C_ORA if val <= 20 else C_RED
+
+        for i, (lbl, key, use_roll, invert) in enumerate(card_defs):
+            val     = rolling.get(key) if use_roll else metrics.get(key)
+            val_str = f"{val}%" if val is not None else "—"
+            color   = _col(val, invert)
+            sub     = mtype.get(key, '')
+            card = ctk.CTkFrame(self._cards_frame, fg_color=CARD, corner_radius=8,
+                                border_width=1, border_color=BORDER)
+            card.grid(row=0, column=i, padx=(0,6), sticky="ew")
+            self._cards_frame.columnconfigure(i, weight=1)
+            ctk.CTkLabel(card, text=lbl, text_color=MUTED,
+                         font=ctk.CTkFont(size=10)).pack(pady=(10,2), padx=8)
+            ctk.CTkLabel(card, text=val_str, text_color=color,
+                         font=ctk.CTkFont(size=20, weight="bold")).pack()
+            if sub:
+                ctk.CTkLabel(card, text=sub, text_color=MUTED,
+                             font=ctk.CTkFont(size=8)).pack(pady=(0,2))
+            ctk.CTkLabel(card, text=" ", font=ctk.CTkFont(size=4)).pack(pady=(0,6))
     def _render_am(self, data):
         tree = self._am_tree
         tree.delete(*tree.get_children())
@@ -819,5 +889,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
