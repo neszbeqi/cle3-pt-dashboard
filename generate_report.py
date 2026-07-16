@@ -404,9 +404,15 @@ def run():
         desktop  = os.path.join(os.path.expanduser("~"), "Desktop")
         filename = f"CLE3_PT_{yest_str}.xlsx"
         out_path = os.path.join(desktop, filename)
-        wb.save(out_path)
-        log(f"Daily report saved: {out_path}")
-        os.startfile(out_path)
+        try:
+            wb.save(out_path)
+            log(f"Daily report saved: {out_path}")
+            os.startfile(out_path)
+        except PermissionError:
+            alt_path = os.path.join(desktop, f"CLE3_PT_{yest_str}_new.xlsx")
+            wb.save(alt_path)
+            log(f"Daily report saved (original locked, used alt): {alt_path}")
+            os.startfile(alt_path)
 
     # ── Rebuild 3-tab trends workbook ─────────────────────────────────────────
     log("Rebuilding CLE3_PT_Trends.xlsx ...")
