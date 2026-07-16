@@ -15,7 +15,7 @@ from collections import defaultdict
 import datetime
 
 SRC_PATH = r'C:\Users\neszbeqi\Documents\CLE3_Reports\CLE3_PT_History.xlsx'
-OUT_PATH = r'C:\Users\neszbeqi\Desktop\CLE3_PT_Trends.xlsx'
+OUT_PATH = r'C:\Users\neszbeqi\Documents\CLE3_Reports\CLE3_PT_Trends.xlsx'
 
 # ── Palette ───────────────────────────────────────────────────
 HDR_FILL = PatternFill('solid', fgColor='1F3864')
@@ -333,8 +333,14 @@ def main():
     build_am_tab(wb, all_daily, all_mgr)
     build_flagged_tab(wb, shift_flagged, shift_total)
 
-    wb.save(OUT_PATH)
-    print(f'Saved: {OUT_PATH}')
+    try:
+        wb.save(OUT_PATH)
+        print(f'Saved: {OUT_PATH}')
+    except PermissionError:
+        import os
+        alt = OUT_PATH.replace('.xlsx', '_new.xlsx')
+        wb.save(alt)
+        print(f'Saved (original locked): {alt}')
 
 
 if __name__ == '__main__':
