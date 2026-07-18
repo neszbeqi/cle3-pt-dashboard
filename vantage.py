@@ -39,6 +39,68 @@ def _ctx(playwright):
         args=['--start-maximized'], no_viewport=True
     )
 
+def _dismiss_picker(page, warehouse, cb):
+    """
+    If Vantage shows a building/warehouse picker, auto-click the right warehouse.
+    Returns True if picker was found and handled.
+    """
+    try:
+        # Give picker a moment to appear
+        page.wait_for_timeout(2000)
+        current_url = page.url
+        cb(f'Current URL: {current_url}')
+
+        # Check if we're on a picker/selector page (URL changed away from station-map)
+        if 'station-map' not in current_url:
+            cb('Picker detected — looking for warehouse option...')
+            # Try to find and click warehouse by text
+            found = page.evaluate(f"""() => {{
+                const wh = '{warehouse}';
+                // Try buttons, links, list items, cards containing the warehouse code
+                const candidates = [
+                    ...document.querySelectorAll('button, a, li, [role="option"], [role="button"], td, .card, [class*="item"]')
+                ];
+                for (const el of candidates) {{
+                    if (el.textContent?.includes(wh)) {{
+                        el.click();
+                        return true;
+                    }}
+                }}
+                // Try input/select
+                const sel = document.querySelector('select');
+                if (sel) {{
+                    for (const opt of sel.options) {{
+                        if (opt.text.includes(wh) || opt.value.includes(wh)) {{
+                            sel.value = opt.value;
+                            sel.dispatchEvent(new Event('change', {{bubbles: true}}));
+                            return true;
+                        }}
+                    }}
+                }}
+                return false;
+            }}""")
+            if found:
+                cb(f'Clicked {warehouse} in picker — waiting for page...')
+                page.wait_for_load_state('networkidle', timeout=30000)
+                page.wait_for_timeout(3000)
+                return True
+            else:
+                cb(f'WARNING: Could not auto-click {warehouse} in picker. Please click it manually.')
+                # Wait up to 30s for user to click manually
+                try:
+                    page.wait_for_url(f'**/station-map**', timeout=30000)
+                    cb('User selected building — continuing...')
+                    page.wait_for_timeout(2000)
+                    return True
+                except Exception:
+                    cb('Timed out waiting for building selection')
+                    return False
+        return False  # No picker, already on correct page
+    except Exception as e:
+        cb(f'Picker check error: {e}')
+        return False
+
+
 def discover_zones(warehouse='CLE3', status_cb=None):
     """
     Auto-discover available zones for a warehouse from the Vantage page.
@@ -66,7 +128,8 @@ def discover_zones(warehouse='CLE3', status_cb=None):
             url = f'{BASE_URL}?customer=AMZN&warehouse={warehouse}&region=us-east-1'
             cb(f'Loading {url}')
             page.goto(url, wait_until='networkidle', timeout=90000)
-            page.wait_for_timeout(4000)
+            _dismiss_picker(page, warehouse, cb)
+            page.wait_for_timeout(2000)
 
             # Try to find zone filter chips / checkboxes / select options in the DOM
             zones_raw = page.evaluate('''() => {
@@ -194,7 +257,8 @@ def fetch(warehouse, time_str, zones=None, status_cb=None):
         page.on('response', on_response)
         try:
             page.goto(url, wait_until='networkidle', timeout=90000)
-            page.wait_for_timeout(4000)
+            _dismiss_picker(page, warehouse, cb)
+            page.wait_for_timeout(2000)
 
             # --- Try API interception first ---
             associates = _parse_api(captured, cb)
