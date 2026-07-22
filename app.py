@@ -239,7 +239,7 @@ class App(ctk.CTk):
     # â”€â”€ Flagged Associates Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _build_flagged_tab(self):
         parent = self._tab.tab("Flagged Associates")
-        cols = ("Badge ID", "Associate Name", "PT%", "Inferred Hrs", "Total Hrs", "Gap to Target")
+        cols = ("Badge ID", "Associate Name", "PT%", "Inferred Hrs", "Total Hrs", "Gap to Target", "Station", "Floor")
 
         f = ctk.CTkFrame(parent, fg_color=BG, corner_radius=0)
         f.pack(fill="both", expand=True, padx=4, pady=4)
@@ -275,7 +275,7 @@ class App(ctk.CTk):
         self._copy_btn.pack(side="left")
 
         hint = ctk.CTkLabel(f,
-            text="▶ Click name → FCLM  ·  Right-click → History",
+            text="▶ Click name → FCLM  ·  Right-click → History  ·  Station/Floor: load Stow Rates → Current Now first",
             text_color=MUTED, font=ctk.CTkFont(size=11))
         hint.pack(anchor="w", padx=4, pady=(4, 4))
 
@@ -287,7 +287,7 @@ class App(ctk.CTk):
         vsb.configure(command=self._flag_tree.yview)
 
         self._flag_tree.column("#0", width=22, stretch=False)
-        widths = [110, 200, 85, 100, 90, 95]
+        widths = [110, 200, 85, 90, 80, 85, 90, 80]
         for col, w in zip(cols, widths):
             self._flag_tree.heading(col, text=col)
             self._flag_tree.column(col, width=w, anchor="center", minwidth=40)
@@ -881,6 +881,32 @@ class App(ctk.CTk):
                     f"Badge: {aa['id']}", ""
                 ), tags=(atag, "assoc"))
 
+    def _stow_match_name(self, fclm_name):
+        """
+        Try to find a Vantage stow record matching an FCLM associate name.
+        FCLM uses "Last, First"; Vantage format is unknown until tested.
+        Tries exact match, then normalized word-set match.
+        """
+        if not getattr(self, '_stow_current', {}):
+            return {}
+        import re
+        def norm(s):
+            return set(re.sub(r"[^a-z0-9]", " ", s.lower()).split())
+        target = norm(fclm_name)
+        # Exact key match
+        if fclm_name in self._stow_current:
+            return self._stow_current[fclm_name]
+        # Normalized word-set match (handles "Last, First" vs "First Last")
+        for key, rec in self._stow_current.items():
+            if norm(key) == target:
+                return rec
+        # Partial match: all words in target appear in key or vice versa
+        for key, rec in self._stow_current.items():
+            kw = norm(key)
+            if target and kw and (target <= kw or kw <= target):
+                return rec
+        return {}
+
     def _refresh_flagged(self, data=None):
         if data is None:
             key = self._last_data_key()
@@ -937,12 +963,15 @@ class App(ctk.CTk):
                 tags=("mgr_header",))
 
             for aa in aa_list:
-                gap   = round(threshold - aa['pt'], 1)
+                gap      = round(threshold - aa['pt'], 1)
+                vantage  = self._stow_match_name(aa['name'])
+                station  = vantage.get('station', '—')
+                floor    = vantage.get('zone',    '—')
                 tree.insert(mgr_id, "end",
                     iid=f"aa_{aa['id']}",
                     values=(aa['id'], aa['name'], pt_str(aa['pt']),
                             f"{aa['inferred']:.2f}", f"{aa['total']:.2f}",
-                            f"−{gap}%"),
+                            f"−{gap}%", station, floor),
                     tags=(pt_tag(aa['pt']),))
 
     def _render_wow(self, d1, d2, data1, data2):
