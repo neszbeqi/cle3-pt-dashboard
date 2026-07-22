@@ -39,63 +39,79 @@ def _ctx(playwright):
         args=['--start-maximized'], no_viewport=True
     )
 
+def _screenshot(page, label='page'):
+    """Save a debug screenshot."""
+    try:
+        path = os.path.join(CACHE_DIR, f'vantage_{label}.png')
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        page.screenshot(path=path, full_page=False)
+        return path
+    except Exception:
+        return None
+
+
 def _dismiss_picker(page, warehouse, cb):
     """
-    If Vantage shows a building/warehouse picker, auto-click the right warehouse.
-    Returns True if picker was found and handled.
+    Handle the Vantage building/warehouse picker if it appears.
+    Tries to auto-click; falls back to waiting for manual selection.
     """
     try:
-        # Give picker a moment to appear
-        page.wait_for_timeout(2000)
+        page.wait_for_timeout(3000)
         current_url = page.url
-        cb(f'Current URL: {current_url}')
+        cb(f'URL: {current_url}')
 
-        # Check if we're on a picker/selector page (URL changed away from station-map)
+        # Take screenshot to see actual state
+        shot = _screenshot(page, 'picker_check')
+        if shot: cb(f'Screenshot: {shot}')
+
+        # Try to auto-click warehouse on current page regardless of URL
+        # (picker may appear as an overlay on the same URL)
+        found = page.evaluate(f"""() => {{
+            const wh = '{warehouse}';
+            const all = [...document.querySelectorAll(
+                'button, a, li, td, [role="option"], [role="button"], [role="menuitem"], ' +
+                '[class*="item"], [class*="card"], [class*="row"], [class*="option"]'
+            )];
+            for (const el of all) {{
+                const txt = (el.textContent || '').trim();
+                if (txt === wh || txt.startsWith(wh + ' ') || txt.endsWith(' ' + wh)) {{
+                    el.click();
+                    return 'clicked:' + txt;
+                }}
+            }}
+            // Try select element
+            const sel = document.querySelector('select');
+            if (sel) {{
+                for (const opt of sel.options) {{
+                    if (opt.text.includes(wh) || opt.value.includes(wh)) {{
+                        sel.value = opt.value;
+                        sel.dispatchEvent(new Event('change', {{bubbles: true}}));
+                        return 'selected:' + opt.text;
+                    }}
+                }}
+            }}
+            return null;
+        }}""")
+
+        if found:
+            cb(f'Auto-clicked picker: {found}')
+            page.wait_for_timeout(4000)
+            _screenshot(page, 'after_picker')
+            return True
+
+        # Not found — if URL doesn't have station-map data loaded, wait for user
         if 'station-map' not in current_url:
-            cb('Picker detected — looking for warehouse option...')
-            # Try to find and click warehouse by text
-            found = page.evaluate(f"""() => {{
-                const wh = '{warehouse}';
-                // Try buttons, links, list items, cards containing the warehouse code
-                const candidates = [
-                    ...document.querySelectorAll('button, a, li, [role="option"], [role="button"], td, .card, [class*="item"]')
-                ];
-                for (const el of candidates) {{
-                    if (el.textContent?.includes(wh)) {{
-                        el.click();
-                        return true;
-                    }}
-                }}
-                // Try input/select
-                const sel = document.querySelector('select');
-                if (sel) {{
-                    for (const opt of sel.options) {{
-                        if (opt.text.includes(wh) || opt.value.includes(wh)) {{
-                            sel.value = opt.value;
-                            sel.dispatchEvent(new Event('change', {{bubbles: true}}));
-                            return true;
-                        }}
-                    }}
-                }}
-                return false;
-            }}""")
-            if found:
-                cb(f'Clicked {warehouse} in picker — waiting for page...')
-                page.wait_for_load_state('networkidle', timeout=30000)
+            cb(f'ACTION REQUIRED: Click "{warehouse}" in the browser window, then wait.')
+            try:
+                page.wait_for_url('**/station-map**', timeout=45000)
                 page.wait_for_timeout(3000)
+                cb('Building selected — continuing...')
                 return True
-            else:
-                cb(f'WARNING: Could not auto-click {warehouse} in picker. Please click it manually.')
-                # Wait up to 30s for user to click manually
-                try:
-                    page.wait_for_url(f'**/station-map**', timeout=30000)
-                    cb('User selected building — continuing...')
-                    page.wait_for_timeout(2000)
-                    return True
-                except Exception:
-                    cb('Timed out waiting for building selection')
-                    return False
-        return False  # No picker, already on correct page
+            except Exception:
+                cb('Timed out waiting for building selection')
+                return False
+
+        return False
     except Exception as e:
         cb(f'Picker check error: {e}')
         return False
@@ -129,7 +145,10 @@ def discover_zones(warehouse='CLE3', status_cb=None):
             cb(f'Loading {url}')
             page.goto(url, wait_until='networkidle', timeout=90000)
             _dismiss_picker(page, warehouse, cb)
-            page.wait_for_timeout(2000)
+            cb('Waiting for page data to load...')
+            page.wait_for_timeout(12000)
+            _screenshot(page, 'discover_loaded')
+            cb('Page ready — scanning zones...')
 
             # Try to find zone filter chips / checkboxes / select options in the DOM
             zones_raw = page.evaluate('''() => {
@@ -258,7 +277,19 @@ def fetch(warehouse, time_str, zones=None, status_cb=None):
         try:
             page.goto(url, wait_until='networkidle', timeout=90000)
             _dismiss_picker(page, warehouse, cb)
-            page.wait_for_timeout(2000)
+            cb('Waiting for data to load (up to 15s)...')
+            page.wait_for_timeout(15000)
+            _screenshot(page, 'last')
+            cb('Page ready — parsing data...')
+
+            # --- Scroll page to trigger any lazy-loaded data ---
+            try:
+                page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                page.wait_for_timeout(2000)
+                page.evaluate("window.scrollTo(0, 0)")
+                page.wait_for_timeout(1000)
+            except Exception:
+                pass
 
             # --- Try API interception first ---
             associates = _parse_api(captured, cb)
