@@ -431,6 +431,11 @@ class App(ctk.CTk):
                       font=ctk.CTkFont(size=10),
                       command=self._stow_debug_screenshot).pack(side="left", padx=(0, 4))
 
+        ctk.CTkButton(ctrl, text="Load CSV", width=78, height=26,
+                      fg_color="#1e4d2b", hover_color="#166534", text_color="#4ade80",
+                      font=ctk.CTkFont(size=10),
+                      command=self._stow_import_csv).pack(side="left", padx=(0, 4))
+
         self._stow_status = ctk.CTkLabel(ctrl, text="", text_color=MUTED,
                                           font=ctk.CTkFont(size=10))
         self._stow_status.pack(side="left", padx=6)
@@ -477,17 +482,73 @@ class App(ctk.CTk):
             "station_hdr", font=("Segoe UI", 9, "bold"), foreground=TEXT)
         self._stow_tree.bind("<<TreeviewSelect>>", self._stow_on_select)
 
-        # Right: detail card
-        card_outer = ctk.CTkFrame(split, fg_color=CARD, corner_radius=8,
-                                   border_width=1, border_color=BORDER)
-        card_outer.grid(row=0, column=1, sticky="nsew")
+        # Right: detail card (scrollable)
+        card_border = ctk.CTkFrame(split, fg_color=CARD, corner_radius=8,
+                                    border_width=1, border_color=BORDER)
+        card_border.grid(row=0, column=1, sticky="nsew")
+        card_outer = ctk.CTkScrollableFrame(card_border, fg_color=CARD,
+                                             scrollbar_button_color=BORDER,
+                                             scrollbar_button_hover_color=ACCENT)
+        card_outer.pack(fill="both", expand=True, padx=2, pady=2)
         ctk.CTkLabel(card_outer,
                      text="Select an associate\nfor comparison",
                      text_color=MUTED, font=ctk.CTkFont(size=11)).pack(
-            expand=True)
+            pady=40)
         self._stow_card = card_outer
 
     # ── Helpers ───────────────────────────────────────────────────────────────
+    def _stow_import_csv(self):
+        """Import stow data from a CSV file exported from Vantage or any source."""
+        from tkinter import filedialog
+        import csv as _csv
+        path = filedialog.askopenfilename(
+            title="Import Stow Data (CSV)",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
+        if not path:
+            return
+
+        def _num_s(v):
+            if v is None: return None
+            try: return float(str(v).replace(",", "").strip())
+            except: return None
+
+        def _col(row, *keys):
+            for k in keys:
+                for variant in (k, k.lower(), k.upper(), k.replace(" ", ""), k.replace(" ", "_")):
+                    if variant in row and str(row[variant]).strip():
+                        return str(row[variant]).strip()
+            return None
+
+        try:
+            records = []
+            with open(path, newline='', encoding='utf-8-sig') as f:
+                reader = _csv.DictReader(f)
+                for row in reader:
+                    name = _col(row, 'Associate', 'Name', 'AssociateName',
+                                'Employee', 'EmployeeName', 'Login', 'AA')
+                    if not name or len(name) < 2:
+                        continue
+                    records.append({
+                        'name':       name,
+                        'zone':       _col(row, 'Zone', 'Floor', 'Area', 'ZoneId') or '',
+                        'station':    _col(row, 'Station', 'StationId',
+                                          'Node', 'NodeId', 'StationLabel') or '',
+                        'rate':       _num_s(_col(row, 'Rate', 'StowRate',
+                                                  'UPH', 'UnitsPerHour', 'Stow Rate')),
+                        'cycle_time': _num_s(_col(row, 'CycleTime', 'Cycle Time',
+                                                  'CT', 'AvgCycleTime', 'Avg Cycle Time')),
+                        'upf':        _num_s(_col(row, 'UPF', 'UnitsPerFace',
+                                                  'Units Per Face', 'UnitsPerFace')),
+                    })
+            if not records:
+                messagebox.showwarning("CSV Import", "No valid rows found.\nExpected columns: Associate, Zone, Station, Rate, Cycle Time, UPF")
+                return
+            self._stow_current = {r['name']: r for r in records}
+            self._stow_set_status(f"Loaded {len(records)} associates from CSV")
+            self._stow_refresh_tree()
+        except Exception as e:
+            messagebox.showerror("CSV Import Error", str(e))
+
     def _stow_set_status(self, msg):
         self._stow_status.configure(text=msg)
 
@@ -633,22 +694,36 @@ class App(ctk.CTk):
             improved = (d > 0) == higher_better
             return "dgreen" if improved else "red"
 
+        def _avg(vals):
+            v = [x for x in vals if x is not None]
+            return sum(v) / len(v) if v else None
+
         for floor in sorted(floor_map):
             stations = floor_map[floor]
             aa_total = sum(len(v) for v in stations.values())
+            # Aggregate floor metrics
+            all_floor_names = [n for nl in stations.values() for n in nl]
+            fr  = _avg([self._stow_current.get(n, {}).get("rate") for n in all_floor_names])
+            fct = _avg([self._stow_current.get(n, {}).get("cycle_time") for n in all_floor_names])
+            fupf= _avg([self._stow_current.get(n, {}).get("upf") for n in all_floor_names])
             floor_id = tree.insert(
                 "", "end", open=True,
-                values=(f"{floor}  —  {len(stations)} station(s), {aa_total} AAs",
-                        "", "", "", "", "", ""),
+                values=(f"{floor}  —  {len(stations)} stations, {aa_total} AAs",
+                        fmt(fr), fmt(fct), fmt(fupf), "", "", ""),
                 tags=("floor_hdr",))
 
-            for station in sorted(stations[floor] if floor in stations else stations):
+            for station in sorted(stations):
                 names_here = stations[station]
+                # Aggregate station metrics
+                sr  = _avg([self._stow_current.get(n, {}).get("rate") for n in names_here])
+                sct = _avg([self._stow_current.get(n, {}).get("cycle_time") for n in names_here])
+                supf= _avg([self._stow_current.get(n, {}).get("upf") for n in names_here])
+                sta_tag = "dgreen" if sr is not None and sr >= 150 else ("red" if sr is not None else "station_hdr")
                 sta_id = tree.insert(
                     floor_id, "end", open=True,
-                    values=(f"  Station: {station}  ({len(names_here)} AAs)",
-                            "", "", "", "", "", ""),
-                    tags=("station_hdr",))
+                    values=(f"  {station}  ({len(names_here)} AAs)",
+                            fmt(sr), fmt(sct), fmt(supf), "", "", ""),
+                    tags=(sta_tag, "station_hdr"))
 
                 for name in sorted(names_here):
                     snap = self._stow_snapshot.get(name, {})
