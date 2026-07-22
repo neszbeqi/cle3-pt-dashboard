@@ -11,10 +11,6 @@ from datetime import datetime, timedelta
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import processor, fclm
 try:
-    import vantage as _vantage
-except ImportError:
-    _vantage = None
-try:
     import updater as _updater
 except ImportError:
     _updater = None
@@ -194,14 +190,13 @@ class App(ctk.CTk):
                                     text_color=TEXT, border_width=1, border_color=BORDER)
         self._tab.pack(fill="both", expand=True, padx=18, pady=(10,14))
 
-        for name in ["AM Rankings", "Flagged Associates", "Week-over-Week", "Stow Rates"]:
+        for name in ["AM Rankings", "Flagged Associates", "Week-over-Week"]:
             self._tab.add(name)
             self._tab.tab(name).configure(fg_color=BG)
 
         self._build_am_tab()
         self._build_flagged_tab()
         self._build_wow_tab()
-        self._build_stow_tab()
 
     # ── AM Rankings Tab ───────────────────────────────────────
     def _build_am_tab(self):
@@ -239,7 +234,7 @@ class App(ctk.CTk):
     # ── Flagged Associates Tab ────────────────────────────────
     def _build_flagged_tab(self):
         parent = self._tab.tab("Flagged Associates")
-        cols = ("Badge ID", "Associate Name", "PT%", "Inferred Hrs", "Total Hrs", "Gap to Target", "Station", "Floor")
+        cols = ("Badge ID", "Associate Name", "PT%", "Inferred Hrs", "Total Hrs", "Gap to Target")
 
         f = ctk.CTkFrame(parent, fg_color=BG, corner_radius=0)
         f.pack(fill="both", expand=True, padx=4, pady=4)
@@ -275,7 +270,7 @@ class App(ctk.CTk):
         self._copy_btn.pack(side="left")
 
         hint = ctk.CTkLabel(f,
-            text="▶ Click name → FCLM  ·  Right-click → History  ·  Station/Floor: load Stow Rates → Current Now first",
+            text="▶ Click name → FCLM  ·  Right-click → History",
             text_color=MUTED, font=ctk.CTkFont(size=11))
         hint.pack(anchor="w", padx=4, pady=(4, 4))
 
@@ -287,7 +282,7 @@ class App(ctk.CTk):
         vsb.configure(command=self._flag_tree.yview)
 
         self._flag_tree.column("#0", width=22, stretch=False)
-        widths = [110, 200, 85, 90, 80, 85, 90, 80]
+        widths = [110, 200, 85, 90, 80, 85]
         for col, w in zip(cols, widths):
             self._flag_tree.heading(col, text=col)
             self._flag_tree.column(col, width=w, anchor="center", minwidth=40)
@@ -372,481 +367,6 @@ class App(ctk.CTk):
     # ─────────────────────────────────────────────────────────
     # Data Fetching
     # ─────────────────────────────────────────────────────────
-
-    # ── Stow Rates Tab ──────────────────────────────────────────────────────────
-    def _build_stow_tab(self):
-        parent = self._tab.tab("Stow Rates")
-        self._stow_snapshot = {}   # name -> record
-        self._stow_current  = {}   # name -> record
-        self._stow_zones    = []
-
-        # ── Controls ──────────────────────────────────────────────────────────
-        ctrl = ctk.CTkFrame(parent, fg_color=CARD, corner_radius=8)
-        ctrl.pack(fill="x", padx=8, pady=(8, 4))
-
-        def lbl(t):
-            ctk.CTkLabel(ctrl, text=t, text_color=MUTED,
-                         font=ctk.CTkFont(size=11)).pack(side="left", padx=(10, 3))
-
-        # Zone checkboxes (auto-discovered)
-        lbl("Zones:")
-        self._stow_zone_frame = ctk.CTkScrollableFrame(
-            ctrl, fg_color=CARD, orientation="horizontal", height=30, width=260)
-        self._stow_zone_frame.pack(side="left", padx=(0, 6))
-        self._stow_zone_vars = {}
-        ctk.CTkLabel(self._stow_zone_frame, text="(click Discover first)",
-                     text_color=MUTED, font=ctk.CTkFont(size=10)).pack(side="left", padx=4)
-
-        ctk.CTkButton(ctrl, text="Discover Zones", width=110, height=26,
-                      fg_color=BORDER, hover_color="#3a3d4a", text_color=TEXT,
-                      font=ctk.CTkFont(size=10),
-                      command=self._stow_discover_zones).pack(side="left", padx=(0, 6))
-
-        lbl("Snapshot (HHMM):")
-        self._stow_time_var = tk.StringVar(value="1750")
-        ctk.CTkEntry(ctrl, textvariable=self._stow_time_var, width=72,
-                     font=ctk.CTkFont(size=12)).pack(side="left", padx=(0, 4))
-
-        ctk.CTkButton(ctrl, text="End of Period", width=95, height=28,
-                      fg_color=BORDER, hover_color="#3a3d4a", text_color=TEXT,
-                      font=ctk.CTkFont(size=10),
-                      command=self._stow_end_of_period).pack(side="left", padx=(0, 4))
-
-        self._stow_snap_btn = ctk.CTkButton(
-            ctrl, text="Snapshot", width=85, height=28,
-            fg_color=ACCENT, hover_color="#cc7a00", text_color="black",
-            font=ctk.CTkFont(size=11, weight="bold"),
-            command=self._stow_fetch_snapshot)
-        self._stow_snap_btn.pack(side="left", padx=(0, 4))
-
-        self._stow_now_btn = ctk.CTkButton(
-            ctrl, text="Current Now", width=100, height=28,
-            fg_color="#2563eb", hover_color="#1d4ed8", text_color="white",
-            font=ctk.CTkFont(size=11, weight="bold"),
-            command=self._stow_fetch_current)
-        self._stow_now_btn.pack(side="left", padx=(0, 4))
-
-        ctk.CTkButton(ctrl, text="📷 Debug", width=72, height=26,
-                      fg_color=BORDER, hover_color="#3a3d4a", text_color=MUTED,
-                      font=ctk.CTkFont(size=10),
-                      command=self._stow_debug_screenshot).pack(side="left", padx=(0, 4))
-
-        ctk.CTkButton(ctrl, text="Load CSV", width=78, height=26,
-                      fg_color="#1e4d2b", hover_color="#166534", text_color="#4ade80",
-                      font=ctk.CTkFont(size=10),
-                      command=self._stow_import_csv).pack(side="left", padx=(0, 4))
-
-        self._stow_status = ctk.CTkLabel(ctrl, text="", text_color=MUTED,
-                                          font=ctk.CTkFont(size=10))
-        self._stow_status.pack(side="left", padx=6)
-
-        # ── Main split: tree (left) + detail card (right) ─────────────────────
-        split = ctk.CTkFrame(parent, fg_color=BG, corner_radius=0)
-        split.pack(fill="both", expand=True, padx=8, pady=(4, 8))
-        split.columnconfigure(0, weight=3)
-        split.columnconfigure(1, weight=1)
-        split.rowconfigure(0, weight=1)
-
-        # Left: grouped tree Floor → Station → AA
-        tree_frame = ctk.CTkFrame(split, fg_color=BG, corner_radius=0)
-        tree_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
-
-        cols = ("Name", "Rate", "CT", "UPF", "Δ Rate", "Δ CT", "Δ UPF")
-        widths = (180, 65, 55, 55, 65, 55, 55)
-
-        vsb = ttk.Scrollbar(tree_frame, orient="vertical")
-        vsb.pack(side="right", fill="y")
-
-        self._stow_tree = ttk.Treeview(
-            tree_frame, columns=cols, show="tree headings",
-            style="Dark.Treeview", yscrollcommand=vsb.set)
-        vsb.configure(command=self._stow_tree.yview)
-
-        self._stow_tree.column("#0", width=20, stretch=False)
-        for c, w in zip(cols, widths):
-            self._stow_tree.heading(c, text=c,
-                command=lambda _c=c: self._stow_sort(_c))
-            self._stow_tree.column(c, width=w, anchor="center",
-                                    minwidth=40, stretch=False)
-        self._stow_tree.column("Name", anchor="w", stretch=True)
-        self._stow_tree.pack(fill="both", expand=True)
-
-        for tag, color in [("red", C_RED), ("orange", C_ORA),
-                            ("lgreen", C_LGR), ("dgreen", C_DGR),
-                            ("muted", MUTED), ("floor_hdr", ACCENT),
-                            ("station_hdr", TEXT)]:
-            self._stow_tree.tag_configure(tag, foreground=color)
-        self._stow_tree.tag_configure(
-            "floor_hdr", font=("Segoe UI", 10, "bold"), foreground=ACCENT)
-        self._stow_tree.tag_configure(
-            "station_hdr", font=("Segoe UI", 9, "bold"), foreground=TEXT)
-        self._stow_tree.bind("<<TreeviewSelect>>", self._stow_on_select)
-
-        # Right: detail card (scrollable)
-        card_border = ctk.CTkFrame(split, fg_color=CARD, corner_radius=8,
-                                    border_width=1, border_color=BORDER)
-        card_border.grid(row=0, column=1, sticky="nsew")
-        card_outer = ctk.CTkScrollableFrame(card_border, fg_color=CARD,
-                                             scrollbar_button_color=BORDER,
-                                             scrollbar_button_hover_color=ACCENT)
-        card_outer.pack(fill="both", expand=True, padx=2, pady=2)
-        ctk.CTkLabel(card_outer,
-                     text="Select an associate\nfor comparison",
-                     text_color=MUTED, font=ctk.CTkFont(size=11)).pack(
-            pady=40)
-        self._stow_card = card_outer
-
-    # ── Helpers ───────────────────────────────────────────────────────────────
-    def _stow_import_csv(self):
-        """Import stow data from a CSV file exported from Vantage or any source."""
-        from tkinter import filedialog
-        import csv as _csv
-        path = filedialog.askopenfilename(
-            title="Import Stow Data (CSV)",
-            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
-        if not path:
-            return
-
-        def _num_s(v):
-            if v is None: return None
-            try: return float(str(v).replace(",", "").strip())
-            except: return None
-
-        def _col(row, *keys):
-            for k in keys:
-                for variant in (k, k.lower(), k.upper(), k.replace(" ", ""), k.replace(" ", "_")):
-                    if variant in row and str(row[variant]).strip():
-                        return str(row[variant]).strip()
-            return None
-
-        try:
-            records = []
-            with open(path, newline='', encoding='utf-8-sig') as f:
-                reader = _csv.DictReader(f)
-                for row in reader:
-                    name = _col(row, 'Associate', 'Name', 'AssociateName',
-                                'Employee', 'EmployeeName', 'Login', 'AA')
-                    if not name or len(name) < 2:
-                        continue
-                    records.append({
-                        'name':       name,
-                        'zone':       _col(row, 'Zone', 'Floor', 'Area', 'ZoneId') or '',
-                        'station':    _col(row, 'Station', 'StationId',
-                                          'Node', 'NodeId', 'StationLabel') or '',
-                        'rate':       _num_s(_col(row, 'Rate', 'StowRate',
-                                                  'UPH', 'UnitsPerHour', 'Stow Rate')),
-                        'cycle_time': _num_s(_col(row, 'CycleTime', 'Cycle Time',
-                                                  'CT', 'AvgCycleTime', 'Avg Cycle Time')),
-                        'upf':        _num_s(_col(row, 'UPF', 'UnitsPerFace',
-                                                  'Units Per Face', 'UnitsPerFace')),
-                    })
-            if not records:
-                messagebox.showwarning("CSV Import", "No valid rows found.\nExpected columns: Associate, Zone, Station, Rate, Cycle Time, UPF")
-                return
-            self._stow_current = {r['name']: r for r in records}
-            self._stow_set_status(f"Loaded {len(records)} associates from CSV")
-            self._stow_refresh_tree()
-        except Exception as e:
-            messagebox.showerror("CSV Import Error", str(e))
-
-    def _stow_set_status(self, msg):
-        self._stow_status.configure(text=msg)
-
-    def _stow_end_of_period(self):
-        now = datetime.now()
-        self._stow_time_var.set("0600" if now.hour < 12 else "1800")
-
-    def _stow_selected_zones(self):
-        return [zid for zid, var in self._stow_zone_vars.items() if var.get()]
-
-    # ── Zone discovery ────────────────────────────────────────────────────────
-    def _stow_discover_zones(self):
-        if _vantage is None:
-            messagebox.showerror("Missing", "vantage.py not found.")
-            return
-        wh = self._wh_var.get().strip().upper() or "CLE3"
-        self._stow_set_status("Discovering zones…")
-        threading.Thread(target=self._stow_discover_thread,
-                         args=(wh,), daemon=True).start()
-
-    def _stow_discover_thread(self, wh):
-        result = _vantage.discover_zones(
-            wh, status_cb=lambda m: self.after(0, self._stow_set_status, m))
-        self.after(0, self._stow_finish_discover, result)
-
-    def _stow_finish_discover(self, result):
-        if not result.get("ok"):
-            self._stow_set_status(f"Discovery failed: {result.get('error','')}")
-            return
-        zones = result["zones"]
-        self._stow_zones = [z["id"] for z in zones if z.get("id")]
-        for w in self._stow_zone_frame.winfo_children():
-            w.destroy()
-        self._stow_zone_vars = {}
-        if not zones:
-            ctk.CTkLabel(self._stow_zone_frame, text="No zones found",
-                         text_color=MUTED, font=ctk.CTkFont(size=10)).pack(
-                side="left", padx=4)
-        else:
-            for z in zones:
-                zid  = z.get("id", "")
-                zlbl = z.get("label") or zid
-                var  = tk.BooleanVar(value=True)
-                self._stow_zone_vars[zid] = var
-                ctk.CTkCheckBox(
-                    self._stow_zone_frame, text=zlbl[:12], variable=var,
-                    width=20, font=ctk.CTkFont(size=10),
-                    text_color=TEXT, fg_color=ACCENT,
-                    hover_color="#cc7a00").pack(side="left", padx=(4, 2))
-        self._stow_set_status(f"Found {len(zones)} zone(s)")
-
-    # ── Fetch snapshot ────────────────────────────────────────────────────────
-    def _stow_fetch_snapshot(self):
-        if _vantage is None:
-            messagebox.showerror("Missing", "vantage.py not found.")
-            return
-        time_str = self._stow_time_var.get().strip().replace(":", "")
-        wh = self._wh_var.get().strip().upper() or "CLE3"
-        zones = self._stow_selected_zones()
-        self._stow_snap_btn.configure(state="disabled", text="Loading…")
-        threading.Thread(target=self._stow_snap_thread,
-                         args=(wh, time_str, zones), daemon=True).start()
-
-    def _stow_snap_thread(self, wh, time_str, zones):
-        result = _vantage.fetch(
-            wh, time_str, zones,
-            status_cb=lambda m: self.after(0, self._stow_set_status, m))
-        self.after(0, self._stow_finish_snap, result, time_str)
-
-    def _stow_finish_snap(self, result, time_str):
-        self._stow_snap_btn.configure(state="normal", text="Snapshot")
-        if not result.get("ok"):
-            self._stow_set_status(f"Snapshot failed: {result.get('error','')}")
-            return
-        self._stow_snapshot = {r["name"]: r for r in result["associates"]}
-        self._stow_set_status(
-            f"Snapshot {time_str}: {len(self._stow_snapshot)} associates")
-        self._stow_refresh_tree()
-
-    # ── Fetch current ─────────────────────────────────────────────────────────
-    def _stow_fetch_current(self):
-        if _vantage is None:
-            messagebox.showerror("Missing", "vantage.py not found.")
-            return
-        now_str = datetime.now().strftime("%H%M")
-        wh = self._wh_var.get().strip().upper() or "CLE3"
-        zones = self._stow_selected_zones()
-        self._stow_now_btn.configure(state="disabled", text="Loading…")
-        threading.Thread(target=self._stow_now_thread,
-                         args=(wh, now_str, zones), daemon=True).start()
-
-    def _stow_now_thread(self, wh, time_str, zones):
-        result = _vantage.fetch(
-            wh, time_str, zones,
-            status_cb=lambda m: self.after(0, self._stow_set_status, m))
-        self.after(0, self._stow_finish_now, result, time_str)
-
-    def _stow_finish_now(self, result, time_str):
-        self._stow_now_btn.configure(state="normal", text="Current Now")
-        if not result.get("ok"):
-            self._stow_set_status(
-                self._stow_status.cget("text") + " | Current failed")
-            return
-        self._stow_current = {r["name"]: r for r in result["associates"]}
-        self._stow_set_status(
-            self._stow_status.cget("text") +
-            f" | Current {time_str}: {len(self._stow_current)} associates")
-        self._stow_refresh_tree()
-
-    # ── Debug screenshot ──────────────────────────────────────────────────────
-    def _stow_debug_screenshot(self):
-        import os
-        shot = os.path.join(
-            os.environ.get("LOCALAPPDATA", os.path.expanduser("~")),
-            ".pt_dashboard", "vantage_last.png")
-        if os.path.exists(shot):
-            os.startfile(shot)
-            self._stow_set_status(f"Opened: {shot}")
-        else:
-            self._stow_set_status("No screenshot yet — run Discover or Current Now first")
-
-    # ── Tree refresh: Floor → Station → AA ────────────────────────────────────
-    def _stow_refresh_tree(self):
-        tree = self._stow_tree
-        tree.delete(*tree.get_children())
-
-        # Union all associates from both datasets; group by floor then station
-        from collections import defaultdict
-        floor_map = defaultdict(lambda: defaultdict(list))
-
-        all_names = set(list(self._stow_current) + list(self._stow_snapshot))
-        for name in all_names:
-            rec = self._stow_current.get(name) or self._stow_snapshot.get(name, {})
-            floor   = rec.get("zone", "") or "Unknown Floor"
-            station = rec.get("station", "") or "Unknown Station"
-            floor_map[floor][station].append(name)
-
-        def fmt(v):
-            return f"{v:.0f}" if v is not None else "—"
-
-        def delta_tag(d, higher_better):
-            if d is None: return "muted"
-            improved = (d > 0) == higher_better
-            return "dgreen" if improved else "red"
-
-        def _avg(vals):
-            v = [x for x in vals if x is not None]
-            return sum(v) / len(v) if v else None
-
-        for floor in sorted(floor_map):
-            stations = floor_map[floor]
-            aa_total = sum(len(v) for v in stations.values())
-            # Aggregate floor metrics
-            all_floor_names = [n for nl in stations.values() for n in nl]
-            fr  = _avg([self._stow_current.get(n, {}).get("rate") for n in all_floor_names])
-            fct = _avg([self._stow_current.get(n, {}).get("cycle_time") for n in all_floor_names])
-            fupf= _avg([self._stow_current.get(n, {}).get("upf") for n in all_floor_names])
-            floor_id = tree.insert(
-                "", "end", open=True,
-                values=(f"{floor}  —  {len(stations)} stations, {aa_total} AAs",
-                        fmt(fr), fmt(fct), fmt(fupf), "", "", ""),
-                tags=("floor_hdr",))
-
-            for station in sorted(stations):
-                names_here = stations[station]
-                # Aggregate station metrics
-                sr  = _avg([self._stow_current.get(n, {}).get("rate") for n in names_here])
-                sct = _avg([self._stow_current.get(n, {}).get("cycle_time") for n in names_here])
-                supf= _avg([self._stow_current.get(n, {}).get("upf") for n in names_here])
-                sta_tag = "dgreen" if sr is not None and sr >= 150 else ("red" if sr is not None else "station_hdr")
-                sta_id = tree.insert(
-                    floor_id, "end", open=True,
-                    values=(f"  {station}  ({len(names_here)} AAs)",
-                            fmt(sr), fmt(sct), fmt(supf), "", "", ""),
-                    tags=(sta_tag, "station_hdr"))
-
-                for name in sorted(names_here):
-                    snap = self._stow_snapshot.get(name, {})
-                    now  = self._stow_current.get(name, {})
-                    nr   = now.get("rate");       sr = snap.get("rate")
-                    nct  = now.get("cycle_time"); sct = snap.get("cycle_time")
-                    nupf = now.get("upf");        supf = snap.get("upf")
-
-                    dr   = (nr - sr)  if nr  is not None and sr  is not None else None
-                    dct  = (nct - sct) if nct is not None and sct is not None else None
-                    dupf = (nupf - supf) if nupf is not None and supf is not None else None
-
-                    def d_str(d, higher_better=True):
-                        if d is None: return "—"
-                        return ("+" if d > 0 else "") + f"{d:.0f}"
-
-                    # Row color from current rate vs target
-                    row_tag = "muted"
-                    if nr is not None:
-                        row_tag = "dgreen" if nr >= 150 else "red"
-
-                    tree.insert(sta_id, "end", iid=f"aa__{name}",
-                        values=(name,
-                                fmt(nr), fmt(nct), fmt(nupf),
-                                d_str(dr),
-                                d_str(dct, higher_better=False),
-                                d_str(dupf)),
-                        tags=(row_tag,))
-
-    # ── Sort ──────────────────────────────────────────────────────────────────
-    def _stow_sort(self, col):
-        tree = self._stow_tree
-        items = [(tree.set(k, col), k) for k in tree.get_children("")]
-        def key(x):
-            try: return float(x[0].replace("+", "").replace("—", "0"))
-            except: return x[0].lower()
-        rev = not getattr(self, "_stow_sort_rev", False)
-        items.sort(key=key, reverse=rev)
-        self._stow_sort_rev = rev
-        for idx, (_, k) in enumerate(items):
-            tree.move(k, "", idx)
-
-    # ── AA detail card ────────────────────────────────────────────────────────
-    def _stow_on_select(self, event):
-        sel = self._stow_tree.selection()
-        if not sel: return
-        iid = sel[0]
-        if not iid.startswith("aa__"): return
-        name = iid[4:]
-        snap = self._stow_snapshot.get(name, {})
-        now  = self._stow_current.get(name, {})
-        self._stow_build_card(name, snap, now)
-
-    def _stow_build_card(self, name, snap, now):
-        card = self._stow_card
-        for w in card.winfo_children():
-            w.destroy()
-
-        ctk.CTkLabel(card, text=name,
-                     font=ctk.CTkFont(size=12, weight="bold"),
-                     text_color=TEXT, wraplength=200).pack(
-            anchor="w", padx=12, pady=(10, 2))
-
-        zone    = snap.get("zone")    or now.get("zone",    "")
-        station = snap.get("station") or now.get("station", "")
-        ctk.CTkLabel(card,
-                     text=f"Floor: {zone or '—'}   Station: {station or '—'}",
-                     text_color=MUTED, font=ctk.CTkFont(size=10)).pack(
-            anchor="w", padx=12, pady=(0, 8))
-
-        metrics = [
-            ("Rate (u/hr)",  "rate",       True,  150,  None),
-            ("Cycle Time",   "cycle_time", False, None, 12),
-            ("Units / Face", "upf",        True,  6,    None),
-        ]
-
-        hdr = ctk.CTkFrame(card, fg_color=BORDER, corner_radius=4)
-        hdr.pack(fill="x", padx=10, pady=(0, 2))
-        for col_txt, w in [("Metric", 90), ("Snapshot", 70),
-                            ("Current", 70), ("Δ", 50)]:
-            ctk.CTkLabel(hdr, text=col_txt, text_color=MUTED,
-                         font=ctk.CTkFont(size=9, weight="bold"),
-                         width=w).pack(side="left", padx=4, pady=3)
-
-        for label, key, higher_better, mn, mx in metrics:
-            sv = snap.get(key); nv = now.get(key)
-            fmt = lambda v: (f"{v:.0f}" if v is not None else "—")
-
-            d_text = d_color = None
-            if sv is not None and nv is not None:
-                d = nv - sv
-                improved = (d > 0) == higher_better
-                d_text  = ("+" if d > 0 else "") + f"{d:.0f}"
-                d_color = C_DGR if improved else C_RED
-
-            def val_color(v):
-                if v is None: return MUTED
-                if mn is not None: return C_DGR if v >= mn else C_RED
-                if mx is not None: return C_DGR if v <= mx else C_RED
-                return TEXT
-
-            row = ctk.CTkFrame(card, fg_color=CARD, corner_radius=4)
-            row.pack(fill="x", padx=10, pady=2)
-            ctk.CTkLabel(row, text=label, text_color=MUTED,
-                         font=ctk.CTkFont(size=10), width=90).pack(
-                side="left", padx=4, pady=4)
-            ctk.CTkLabel(row, text=fmt(sv), text_color=MUTED,
-                         font=ctk.CTkFont(size=11), width=70).pack(side="left")
-            ctk.CTkLabel(row, text=fmt(nv),
-                         text_color=val_color(nv),
-                         font=ctk.CTkFont(size=11, weight="bold"),
-                         width=70).pack(side="left")
-            ctk.CTkLabel(row, text=d_text or "—",
-                         text_color=d_color or MUTED,
-                         font=ctk.CTkFont(size=11, weight="bold"),
-                         width=50).pack(side="left")
-
-        # Target legend
-        ctk.CTkLabel(card,
-                     text="Targets: Rate ≥150  CT ≤12  UPF ≥6",
-                     text_color=MUTED, font=ctk.CTkFont(size=9)).pack(
-            anchor="w", padx=12, pady=(6, 10))
-
 
     def _on_fetch(self):
         date  = self._date_var.get().strip()
@@ -1036,31 +556,6 @@ class App(ctk.CTk):
                     f"Badge: {aa['id']}", ""
                 ), tags=(atag, "assoc"))
 
-    def _stow_match_name(self, fclm_name):
-        """
-        Try to find a Vantage stow record matching an FCLM associate name.
-        FCLM uses "Last, First"; Vantage format is unknown until tested.
-        Tries exact match, then normalized word-set match.
-        """
-        if not getattr(self, '_stow_current', {}):
-            return {}
-        import re
-        def norm(s):
-            return set(re.sub(r"[^a-z0-9]", " ", s.lower()).split())
-        target = norm(fclm_name)
-        # Exact key match
-        if fclm_name in self._stow_current:
-            return self._stow_current[fclm_name]
-        # Normalized word-set match (handles "Last, First" vs "First Last")
-        for key, rec in self._stow_current.items():
-            if norm(key) == target:
-                return rec
-        # Partial match: all words in target appear in key or vice versa
-        for key, rec in self._stow_current.items():
-            kw = norm(key)
-            if target and kw and (target <= kw or kw <= target):
-                return rec
-        return {}
 
     def _refresh_flagged(self, data=None):
         if data is None:
@@ -1119,14 +614,11 @@ class App(ctk.CTk):
 
             for aa in aa_list:
                 gap      = round(threshold - aa['pt'], 1)
-                vantage  = self._stow_match_name(aa['name'])
-                station  = vantage.get('station', '—')
-                floor    = vantage.get('zone',    '—')
                 tree.insert(mgr_id, "end",
                     iid=f"aa_{aa['id']}",
                     values=(aa['id'], aa['name'], pt_str(aa['pt']),
                             f"{aa['inferred']:.2f}", f"{aa['total']:.2f}",
-                            f"−{gap}%", station, floor),
+                            f"−{gap}%"),
                     tags=(pt_tag(aa['pt']),))
 
     def _render_wow(self, d1, d2, data1, data2):
