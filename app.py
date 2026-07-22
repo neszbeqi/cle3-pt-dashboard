@@ -52,7 +52,7 @@ def pt_tag(pt):
     return "dgreen"
 
 def pt_str(pt):
-    return f"{pt:.1f}%" if pt is not None else "â€”"
+    return f"{pt:.1f}%" if pt is not None else "””"
 
 # â”€â”€ ttk dark style â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def apply_tree_style():
@@ -83,7 +83,7 @@ class App(ctk.CTk):
         self.configure(fg_color=BG)
         apply_tree_style()
 
-        self._data       = {}   # date_key â†’ processed data
+        self._data       = {}   # date_key → processed data
         self._last_url   = ""
         self._build_ui()
         self._check_for_updates()
@@ -106,7 +106,7 @@ class App(ctk.CTk):
         bar.pack(fill="x"); bar.pack_propagate(False)
         ctk.CTkLabel(bar, text="â—", text_color=ACCENT,
                      font=ctk.CTkFont(size=20)).pack(side="left", padx=(14,6), pady=0)
-        ctk.CTkLabel(bar, text="CLE3 Â· Productive Time Dashboard",
+        ctk.CTkLabel(bar, text="CLE3 · Productive Time Dashboard",
                      font=ctk.CTkFont(size=15, weight="bold"),
                      text_color=TEXT).pack(side="left")
         self._status_var = tk.StringVar(value="Select a date and shift, then click Get Data.")
@@ -179,7 +179,7 @@ class App(ctk.CTk):
 
         # Color legend
         for color, label in [(C_DGR,"â‰¥90%"),(C_LGR,"85-89%"),(C_ORA,"80-84%"),(C_RED,"<80%")]:
-            ctk.CTkLabel(bar, text="â– ", text_color=color,
+            ctk.CTkLabel(bar, text="■", text_color=color,
                          font=ctk.CTkFont(size=14)).pack(side="right", padx=(0,2))
             ctk.CTkLabel(bar, text=label, text_color=MUTED,
                          font=ctk.CTkFont(size=10)).pack(side="right", padx=(8,0))
@@ -211,7 +211,7 @@ class App(ctk.CTk):
         f = ctk.CTkFrame(parent, fg_color=BG, corner_radius=0)
         f.pack(fill="both", expand=True, padx=4, pady=4)
 
-        hint = ctk.CTkLabel(f, text="â–¶ Click an AM row to expand their associates",
+        hint = ctk.CTkLabel(f, text="▶ Click an AM row to expand their associates",
                             text_color=MUTED, font=ctk.CTkFont(size=11))
         hint.pack(anchor="w", padx=4, pady=(0,4))
 
@@ -265,7 +265,7 @@ class App(ctk.CTk):
         self._flag_search_var.trace_add("write", lambda *_: self._refresh_flagged())
         ctk.CTkEntry(mgr_bar, textvariable=self._flag_search_var,
                      width=160, font=ctk.CTkFont(size=11),
-                     placeholder_text="name or badgeâ€¦").pack(side="left", padx=(0, 10))
+                     placeholder_text="name or badge…").pack(side="left", padx=(0, 10))
 
         self._copy_btn = ctk.CTkButton(mgr_bar, text="ðŸ“‹ Copy List",
                                         command=self._copy_flagged,
@@ -275,7 +275,7 @@ class App(ctk.CTk):
         self._copy_btn.pack(side="left")
 
         hint = ctk.CTkLabel(f,
-            text="â–¶ Click name â†’ FCLM  Â·  Right-click â†’ History",
+            text="▶ Click name → FCLM  ·  Right-click → History",
             text_color=MUTED, font=ctk.CTkFont(size=11))
         hint.pack(anchor="w", padx=4, pady=(4, 4))
 
@@ -356,7 +356,7 @@ class App(ctk.CTk):
             ctk.CTkLabel(side, text=label, font=ctk.CTkFont(size=12, weight="bold"),
                          text_color=ACCENT).pack(anchor="w", padx=4, pady=(0,4))
 
-            cols = ("Manager", "PT%", "AAs", "Î” vs other")
+            cols = ("Manager", "PT%", "AAs", "Δ vs other")
             vsb  = ttk.Scrollbar(side, orient="vertical")
             vsb.pack(side="right", fill="y")
             t = ttk.Treeview(side, columns=cols, show="headings",
@@ -700,8 +700,8 @@ class App(ctk.CTk):
         if not date or not wh:
             messagebox.showwarning("Missing Info", "Please enter a date and warehouse ID.")
             return
-        self._fetch_btn.configure(state="disabled", text="Fetchingâ€¦")
-        self._set_status("Connecting to FCLMâ€¦")
+        self._fetch_btn.configure(state="disabled", text="Fetching…")
+        self._set_status("Connecting to FCLM…")
         self._current_wh = wh
         threading.Thread(target=self._fetch_thread,
                          args=(date, shift, wh, self._finish_main),
@@ -758,8 +758,8 @@ class App(ctk.CTk):
         shift = self._wow_shift.get()
         wh    = self._wh_var.get().strip().upper()
         if not d1 or not d2: return
-        self._wow_btn.configure(state="disabled", text="Fetchingâ€¦")
-        self._set_status(f"Fetching {d1} and {d2}â€¦")
+        self._wow_btn.configure(state="disabled", text="Fetching…")
+        self._set_status(f"Fetching {d1} and {d2}…")
         threading.Thread(target=self._wow_thread,
                          args=(d1, d2, shift, wh), daemon=True).start()
 
@@ -789,8 +789,8 @@ class App(ctk.CTk):
         self._refresh_flagged(data)
         lbl = shift.split('(')[0].strip()
         self._set_status(
-            f"{lbl} Â· {date} Â· Overall PT: {pt_str(data['overall_pt'])} Â· "
-            f"{data['aa_count']} AAs Â· {data['flagged']} flagged")
+            f"{lbl} · {date} · Overall PT: {pt_str(data['overall_pt'])} · "
+            f"{data['aa_count']} AAs · {data['flagged']} flagged")
 
     def _build_cards(self, data):
         """Temporary FCLM cards shown while BMI is loading."""
@@ -863,7 +863,7 @@ class App(ctk.CTk):
         tree = self._am_tree
         tree.delete(*tree.get_children())
         for i, mg in enumerate(data['managers']):
-            medal = ["ðŸ¥‡","ðŸ¥ˆ","ðŸ¥‰"][i] if i < 3 else str(i+1)
+            medal = ["🥇","🥈","🥉"][i] if i < 3 else str(i+1)
             tag   = pt_tag(mg['pt'])
             am_id = tree.insert("", "end", values=(
                 medal, mg['name'], pt_str(mg['pt']),
@@ -942,7 +942,7 @@ class App(ctk.CTk):
                     iid=f"aa_{aa['id']}",
                     values=(aa['id'], aa['name'], pt_str(aa['pt']),
                             f"{aa['inferred']:.2f}", f"{aa['total']:.2f}",
-                            f"âˆ’{gap}%"),
+                            f"−{gap}%"),
                     tags=(pt_tag(aa['pt']),))
 
     def _render_wow(self, d1, d2, data1, data2):
@@ -954,7 +954,7 @@ class App(ctk.CTk):
             t = self._wow_trees[idx]
             t.delete(*t.get_children())
             if not data:
-                t.insert("", "end", values=("No data","â€”","â€”","â€”"))
+                t.insert("", "end", values=("No data","””","””","””"))
                 continue
             other = other_map[idx]
             other_by_name = {m['name']: m['pt'] for m in other['managers']} if other else {}
@@ -966,7 +966,7 @@ class App(ctk.CTk):
                     delta_str = f"+{delta}%" if delta >= 0 else f"{delta}%"
                     delta_tag = "lgreen" if delta > 0 else ("red" if delta < 0 else "na")
                 else:
-                    delta_str = "â€”"
+                    delta_str = "””"
                     delta_tag = "na"
                 row_id = t.insert("", "end", values=(
                     mg['name'], pt_str(mg['pt']), mg['aa_count'], delta_str
@@ -978,7 +978,7 @@ class App(ctk.CTk):
                     delta = round(data['overall_pt'] - other_overall, 1)
                     ds = f"+{delta}%" if delta >= 0 else f"{delta}%"
                 else:
-                    ds = "â€”"
+                    ds = "””"
                 t.insert("", "end", values=(
                     f"â”€â”€ OVERALL ({label_map[idx]})",
                     pt_str(data['overall_pt']), data['aa_count'], ds
@@ -996,7 +996,7 @@ class App(ctk.CTk):
         # Only act on AA child rows (parent = a manager header row)
         parent = self._flag_tree.parent(item)
         if not parent:
-            return   # clicked a manager header â€” just expand/collapse, do nothing extra
+            return   # clicked a manager header ”” just expand/collapse, do nothing extra
 
         vals = self._flag_tree.item(item, "values")
         if not vals or not vals[0]:
@@ -1022,7 +1022,7 @@ class App(ctk.CTk):
         else:
             self._autorefresh_on = True
             self._auto_btn.configure(text="â—‰ Live", fg_color="#1a3a1a", text_color=C_LGR)
-            self._set_status("Auto-refresh on â€” fetching nowâ€¦")
+            self._set_status("Auto-refresh on ”” fetching now…")
             self._on_fetch()
 
     # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1041,7 +1041,7 @@ class App(ctk.CTk):
         flagged = [a for a in data['associates']
                    if a['pt'] is not None and a['pt'] < threshold]
         if not flagged:
-            self._set_status("Nothing to copy â€” no flagged associates.")
+            self._set_status("Nothing to copy ”” no flagged associates.")
             return
 
         from collections import defaultdict
@@ -1052,7 +1052,7 @@ class App(ctk.CTk):
             key=lambda m: sum(a['pt'] for a in by_mgr[m]) / len(by_mgr[m]))
 
         lines = [
-            f"CLE3 Flagged Associates â€” {shift_str.split('(')[0].strip()} Â· {date_str}",
+            f"CLE3 Flagged Associates ”” {shift_str.split('(')[0].strip()} · {date_str}",
             "â”€" * 52,
         ]
         for mgr in sorted_mgrs:
@@ -1065,10 +1065,10 @@ class App(ctk.CTk):
                 parts = aa['name'].strip().split()
                 login = (parts[0][0] + parts[-1]).lower() if len(parts) >= 2 else aa['id']
                 lines.append(
-                    f"  Â· {aa['name']:<28} {login:<12} {pt_str(aa['pt']):<8} âˆ’{gap}%")
+                    f"  · {aa['name']:<28} {login:<12} {pt_str(aa['pt']):<8} −{gap}%")
         lines += [
             "â”€" * 52,
-            f"Total: {len(flagged)} flagged  Â·  Threshold: {int(threshold)}%",
+            f"Total: {len(flagged)} flagged  ·  Threshold: {int(threshold)}%",
         ]
 
         text = "\n".join(lines)
@@ -1119,7 +1119,7 @@ class App(ctk.CTk):
             entries = []
 
         win = tk.Toplevel(self)
-        win.title(f"History â€” {name}")
+        win.title(f"History ”” {name}")
         win.configure(bg=BG)
         win.geometry("480x400")
         win.resizable(True, True)
@@ -1185,7 +1185,7 @@ class App(ctk.CTk):
         # Only sort top-level rows
         items = [(tree.set(k, col), k) for k in tree.get_children("")]
         def key(x):
-            v = x[0].replace('%','').replace('ðŸ¥‡','0').replace('ðŸ¥ˆ','1').replace('ðŸ¥‰','2').strip()
+            v = x[0].replace('%','').replace('🥇','0').replace('🥈','1').replace('🥉','2').strip()
             try: return (0, float(v))
             except: return (1, v.lower())
         rev = getattr(tree, f'_sort_rev_{col}', False)
