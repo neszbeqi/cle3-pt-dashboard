@@ -1,476 +1,817 @@
-// CLE3 Live Dashboard — app.js
+// CLE3 Live Dashboard — app.js  (rewritten to match server.py + index.html)
 
-const API = '';
-let state = {
-  associates: [], ams: [], eti: [], andons: [],
-  newHires: [], expiringFeedbacks: [], barrierPatterns: [],
-  notifications: [], unreadCount: 0,
-  currentShift: 'night', selectedAssociate: null,
-  drawerOpen: false, activeTab: 'floor',
-  refreshInterval: null, lastRefresh: null,
+// ── State ─────────────────────────────────────────────────────────────────────
+const S = {
+  associates: [], wouldBe: null, expiring: [],
+  barrierPatterns: [], notifications: [], unreadCount: 0,
+  eti: null, andons: [],
+  currentShift: 'night', activeTab: 'floor',
+  currentView: 'all', amFilter: '',
+  selectedLogin: null, refreshTimer: null,
 };
 
-function fmt(n,d=1){if(n==null||isNaN(n))return'–';return Number(n).toFixed(d)+'%';}
-function fmtDelta(n){if(n==null||isNaN(n))return'';const s=n>=0?'+':'';return s+Number(n).toFixed(1)+'%';}
-function ptClass(pt){if(pt==null)return'pt-unknown';if(pt<75)return'pt-red';if(pt<80)return'pt-orange';if(pt<84)return'pt-yellow';return'pt-green';}
-function trendArrow(d){if(d==null)return'';if(d>1)return'<span class="arrow up">▲</span>';if(d<-1)return'<span class="arrow down">▼</span>';return'<span class="arrow flat">►</span>';}
-function chipHtml(l,c){return`<span class="chip ${c}">${l}</span>`;}
-function escHtml(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function timeAgo(ts){if(!ts)return'';const d=Math.floor((Date.now()-new Date(ts).getTime())/1000);if(d<60)return d+'s ago';if(d<3600)return Math.floor(d/60)+'m ago';return Math.floor(d/3600)+'h ago';}
-
-async function apiFetch(path,opts={}){
-  try{const r=await fetch(API+path,opts);if(!r.ok)throw new Error(r.status);return await r.json();}
-  catch(e){console.error('API',path,e);return null;}
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const esc = s => s == null ? '' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const fmt  = (n,d=1) => n == null ? '–' : Number(n).toFixed(d) + '%';
+const fmtD = n => n == null ? '' : (n >= 0 ? '+' : '') + Number(n).toFixed(1) + '%';
+function ptCls(pt) {
+  if (pt == null) return '';
+  return pt >= 84 ? 'good' : pt >= 80 ? 'warn' : 'bad';
 }
-async function apiPost(path,body){
-  return apiFetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+function severityCls(s) {
+  return s === 'critical' ? 'critical' : s === 'high' ? 'high' : 'medium';
 }
+function setStatus(msg) {
+  const el = document.getElementById('status-msg');
+  if (el) el.textContent = msg;
+}
+function show(id)  { document.getElementById(id)?.classList.remove('hidden'); }
+function hide(id)  { document.getElementById(id)?.classList.add('hidden'); }
+function tog(id,v) { document.getElementById(id)?.classList.toggle('hidden', !v); }
 
-async function loadAll(){
+// ── API ───────────────────────────────────────────────────────────────────────
+async function api(path, opts={}) {
+  try {
+    const r = await fetch(path, opts);
+    if (!r.ok) throw new Error(r.status);
+    return await r.json();
+  } catch(e) { console.error('API', path, e); return null; }
+}
+const apiPost = (path, body) => api(path, {
+  method: 'POST',
+  headers: {'Content-Type':'application/json'},
+  body: JSON.stringify(body),
+});
+
+// ── Load data ─────────────────────────────────────────────────────────────────
+async function loadAll() {
   setStatus('Refreshing…');
-  const[assocs,eti,andons,expiring,patterns]=await Promise.all([
-    apiFetch('/api/associates'),apiFetch('/api/eti'),apiFetch('/api/andons'),
-    apiFetch('/api/expiring-feedbacks'),apiFetch('/api/barrier-patterns'),
-  ]);
-  if(assocs){state.associates=assocs.associates||[];state.ams=assocs.ams||[];state.newHires=assocs.new_hires||[];}
-  if(eti)state.eti=eti.data||[];
-  if(andons)state.andons=andons.andons||[];
-  if(expiring)state.expiringFeedbacks=expiring.feedbacks||[];
-  if(patterns)state.barrierPatterns=patterns.patterns||[];
-  state.lastRefresh=new Date();
-  setStatus('Updated: '+state.lastRefresh.toLocaleTimeString());
+  const r = await api(`/api/associates?shift=${S.currentShift}`);
+  if (r) {
+    if (r.ok) {
+      S.associates = r.data || [];
+      S.wouldBe    = r.would_be;
+      S.expiring   = r.expiring || [];
+      hide('floor-loading');
+    } else {
+      S.associates = [];
+      show('floor-loading');
+      document.getElementById('floor-loading').textContent = r.message || 'Loading…';
+    }
+  }
+  // Fetch barrier patterns in background
+  api('/api/barriers/all').then(d => { if (d) S.barrierPatterns = d; });
+  S.lastRefresh = new Date();
+  setStatus('Updated: ' + S.lastRefresh.toLocaleTimeString());
   renderAll();
 }
-function setStatus(msg){const e=document.getElementById('status-text');if(e)e.textContent=msg;}
 
-function initSSE(){
-  const es=new EventSource('/api/events');
-  es.onmessage=(e)=>{
-    const d=JSON.parse(e.data);
-    if(d.type==='notification'){state.notifications.unshift(d);state.unreadCount++;updateBell();showToast(d.message,d.level||'info');}
-    else if(d.type==='refresh')loadAll();
+// ── SSE ───────────────────────────────────────────────────────────────────────
+function initSSE() {
+  const es = new EventSource('/api/events');
+  es.onmessage = e => {
+    try {
+      const d = JSON.parse(e.data);
+      if (d.type === 'flag') {
+        const msg = `⚑ ${d.payload?.name || d.payload?.login}: ${d.payload?.flag}`;
+        S.notifications.unshift({ msg, ts: new Date().toISOString(), level: 'crit' });
+        S.unreadCount++;
+        updateBell();
+        showToast(msg, 'warn');
+      } else if (d.type === 'refresh') {
+        loadAll();
+      }
+    } catch {}
   };
-  es.onerror=()=>setTimeout(initSSE,5000);
+  es.onerror = () => setTimeout(initSSE, 5000);
 }
 
-function updateBell(){
-  const b=document.getElementById('notif-badge');if(!b)return;
-  if(state.unreadCount>0){b.textContent=state.unreadCount;b.style.display='inline-block';}
-  else b.style.display='none';
+// ── Bell ──────────────────────────────────────────────────────────────────────
+function updateBell() {
+  const badge = document.getElementById('notif-badge');
+  if (!badge) return;
+  if (S.unreadCount > 0) {
+    badge.textContent = S.unreadCount;
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
 }
-function toggleNotifPanel(){
-  state.unreadCount=0;updateBell();
-  const p=document.getElementById('notif-panel');if(!p)return;
-  if(p.classList.contains('open')){p.classList.remove('open');return;}
-  p.innerHTML=state.notifications.length===0?'<div class="notif-empty">No notifications</div>':
-    state.notifications.slice(0,20).map(n=>`<div class="notif-item ${n.level||'info'}"><span class="notif-msg">${escHtml(n.message)}</span><span class="notif-time">${timeAgo(n.ts)}</span></div>`).join('');
-  p.classList.add('open');
-}
-
-function showToast(msg,level='info'){
-  const w=document.getElementById('toast-wrap');if(!w)return;
-  const d=document.createElement('div');d.className=`toast toast-${level}`;d.textContent=msg;
-  w.appendChild(d);setTimeout(()=>d.classList.add('show'),50);
-  setTimeout(()=>{d.classList.remove('show');setTimeout(()=>d.remove(),400);},4000);
-}
-
-function renderExpiryBanner(){
-  const b=document.getElementById('expiry-banner');if(!b)return;
-  if(!state.expiringFeedbacks.length){b.style.display='none';return;}
-  b.style.display='flex';
-  b.innerHTML=`<span class="banner-icon">⚠</span><span><strong>${state.expiringFeedbacks.length} feedback(s) expiring within 7 days:</strong> `+
-    state.expiringFeedbacks.map(f=>`${escHtml(f.associate_name)} (${escHtml(f.type)} — ${escHtml(f.expires_on)})`).join(', ')+
-    `</span><button class="banner-close" onclick="document.getElementById('expiry-banner').style.display='none'">✕</button>`;
+function toggleNotifPanel() {
+  const panel = document.getElementById('notif-panel');
+  if (!panel) return;
+  if (!panel.classList.contains('hidden')) { panel.classList.add('hidden'); return; }
+  const list = document.getElementById('notif-list');
+  if (list) {
+    list.innerHTML = S.notifications.length === 0
+      ? '<div class="empty-msg">No alerts</div>'
+      : S.notifications.slice(0,30).map(n =>
+          `<div class="notif-item"><div class="ni-flag">${esc(n.msg)}</div><div class="ni-time">${new Date(n.ts).toLocaleTimeString()}</div></div>`
+        ).join('');
+  }
+  S.unreadCount = 0;
+  updateBell();
+  panel.classList.remove('hidden');
 }
 
-function renderFloor(){
-  const el=document.getElementById('floor-content');if(!el)return;
-  if(!state.ams.length){el.innerHTML='<div class="empty-state">No data yet — loading…</div>';return;}
-  const sorted=[...state.ams].sort((a,b)=>(a.avg_pt||100)-(b.avg_pt||100));
-  el.innerHTML=sorted.map(am=>renderAMBlock(am)).join('');
-}
-function renderAMBlock(am){
-  const assocs=state.associates.filter(a=>a.manager===am.name);
-  const avg=am.avg_pt!=null?am.avg_pt.toFixed(1):'–';
-  return`<div class="am-block">
-    <div class="am-header ${am.avg_pt!=null?ptClass(am.avg_pt):''}">
-      <span class="am-name">${escHtml(am.name)}</span>
-      <span class="am-pt">${avg}%</span>
-      <span class="am-count">${assocs.length} associates</span>
-    </div>
-    <div class="assoc-list">
-      ${assocs.sort((a,b)=>(a.pt_pct||100)-(b.pt_pct||100)).map(a=>renderAssocRow(a)).join('')}
-    </div>
-  </div>`;
-}
-function renderAssocRow(a){
-  const pt=a.pt_pct,cls=ptClass(pt),bar=pt!=null?Math.min(100,Math.max(0,pt)):0;
-  const isNew=state.newHires.some(n=>n.employee_id===a.employee_id);
-  const flags=a.flags||[];
-  let chips='';
-  if(isNew)chips+=chipHtml('NEW','chip-new');
-  if(a.handoff_note)chips+=chipHtml('📋','chip-handoff');
-  flags.forEach(f=>{
-    if(f==='low_pt')chips+=chipHtml('LOW PT','chip-red');
-    else if(f==='idle_gaps')chips+=chipHtml('IDLE','chip-orange');
-    else if(f==='black_bar')chips+=chipHtml('BLACK BAR','chip-black');
-    else if(f==='pattern')chips+=chipHtml('PATTERN','chip-purple');
-    else chips+=chipHtml(f,'chip-default');
-  });
-  return`<div class="assoc-row${flags.length?' has-flags':''}" onclick="openDrawer('${escHtml(a.employee_id)}')">
-    <div class="assoc-main"><span class="assoc-name">${escHtml(a.name)}</span><span class="assoc-id">${escHtml(a.employee_id)}</span></div>
-    <div class="assoc-pt-wrap"><div class="pt-bar-bg"><div class="pt-bar ${cls}" style="width:${bar}%"></div></div>
-    <span class="assoc-pt ${cls}">${fmt(pt)}</span>${trendArrow(a.projected_delta)}</div>
-    <div class="assoc-chips">${chips}</div>
-  </div>`;
+// ── Toast ─────────────────────────────────────────────────────────────────────
+let _toastWrap = null;
+function showToast(msg, level='info') {
+  if (!_toastWrap) {
+    _toastWrap = document.createElement('div');
+    _toastWrap.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:999;display:flex;flex-direction:column;gap:8px';
+    document.body.appendChild(_toastWrap);
+  }
+  const d = document.createElement('div');
+  d.style.cssText = `padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;opacity:0;transition:opacity .3s;
+    background:${level==='warn'?'#7c2d12':level==='success'?'#14532d':'#1e2130'};
+    color:${level==='warn'?'#fed7aa':level==='success'?'#bbf7d0':'#e2e8f0'};
+    border:1px solid ${level==='warn'?'#9a3412':level==='success'?'#166534':'#2d3148'}`;
+  d.textContent = msg;
+  _toastWrap.appendChild(d);
+  requestAnimationFrame(() => { d.style.opacity = '1'; });
+  setTimeout(() => { d.style.opacity = '0'; setTimeout(() => d.remove(), 350); }, 3500);
 }
 
-async function openDrawer(employeeId){
-  const assoc=state.associates.find(a=>a.employee_id===employeeId);if(!assoc)return;
-  state.selectedAssociate=assoc;state.drawerOpen=true;
-  document.getElementById('drawer').classList.add('open');
-  document.getElementById('drawer-overlay').classList.add('open');
-  await renderDrawer(assoc);
-}
-function closeDrawer(){
-  state.drawerOpen=false;state.selectedAssociate=null;
-  document.getElementById('drawer').classList.remove('open');
-  document.getElementById('drawer-overlay').classList.remove('open');
-}
-async function renderDrawer(assoc){
-  const drawer=document.getElementById('drawer-body');if(!drawer)return;
-  drawer.innerHTML='<div class="drawer-loading">Loading…</div>';
-  const[detail,feedback,barriers,actions]=await Promise.all([
-    apiFetch(`/api/associate/${encodeURIComponent(assoc.employee_id)}`),
-    apiFetch(`/api/feedback/${encodeURIComponent(assoc.employee_id)}`),
-    apiFetch(`/api/barriers/${encodeURIComponent(assoc.employee_id)}`),
-    apiFetch(`/api/actions/${encodeURIComponent(assoc.employee_id)}`),
-  ]);
-  const d=detail||assoc;
-  const feedbacks=feedback?.feedbacks||[];
-  const barrierList=barriers?.barriers||[];
-  const actionList=actions?.actions||[];
-  const flags=d.flags||[];
-  const momentum=d.momentum||[];
-  const patterns=d.patterns||[];
-  const andons=state.andons.filter(an=>an.employee_id===assoc.employee_id);
-  const isNew=state.newHires.some(n=>n.employee_id===assoc.employee_id);
-  let nextAction='';
-  if(flags.length){const r=await apiFetch(`/api/next-action/${encodeURIComponent(assoc.employee_id)}`);nextAction=r?.action||'';}
-
-  drawer.innerHTML=`
-  <div class="drawer-header">
-    <div><div class="drawer-name">${escHtml(d.name)} ${isNew?chipHtml('NEW HIRE','chip-new'):''}</div>
-    <div class="drawer-sub">${escHtml(d.employee_id)} · ${escHtml(d.manager)}</div></div>
-    <div class="drawer-pt-big ${ptClass(d.pt_pct)}">${fmt(d.pt_pct)}</div>
-  </div>
-  ${nextAction?`<div class="next-action-box"><span class="na-label">NEXT ACTION</span>${escHtml(nextAction)}</div>`:''}
-  <div class="drawer-section"><div class="section-title">Projection</div>
-    <div class="projection-row">
-      <span>Current: <strong>${fmt(d.pt_pct)}</strong></span>
-      <span>Projected EOD: <strong class="${ptClass(d.projected_pt)}">${fmt(d.projected_pt)}</strong></span>
-      <span class="delta">${fmtDelta(d.projected_delta)}</span>
-    </div>
-  </div>
-  ${momentum.length?`<div class="drawer-section"><div class="section-title">Momentum (2h windows)</div>
-    <div class="momentum-list">${momentum.map(m=>`<div class="momentum-item"><span>${escHtml(m.window)}</span><span class="${ptClass(m.pt)}">${fmt(m.pt)}</span></div>`).join('')}</div></div>`:''}
-  ${flags.length?`<div class="drawer-section"><div class="section-title">Active Flags</div>
-    <div class="flags-list">${flags.map(f=>`<div class="flag-item">${escHtml(f)}</div>`).join('')}</div></div>`:''}
-  ${patterns.length?`<div class="drawer-section"><div class="section-title">Detected Patterns</div>
-    ${patterns.map(p=>`<div class="pattern-item"><span class="pattern-label">${escHtml(p.label||p)}</span><span class="pattern-desc">${escHtml(p.description||'')}</span></div>`).join('')}</div>`:''}
-  ${andons.length?`<div class="drawer-section"><div class="section-title">Active Andons</div>
-    ${andons.map(an=>`<div class="andon-item ${an.severity||''}">${escHtml(an.description)} <span class="andon-time">${timeAgo(an.ts)}</span></div>`).join('')}</div>`:''}
-  <div class="drawer-section"><div class="section-title">Feedback History</div>
-    ${feedbacks.length===0?'<div class="empty-small">No feedback on record</div>':
-      feedbacks.map(f=>`<div class="feedback-item"><span class="fb-type">${escHtml(f.type)}</span><span class="fb-date">${escHtml(f.date)}</span><span class="fb-expires">Expires: ${escHtml(f.expires_on)}</span><span class="fb-note">${escHtml(f.note||'')}</span></div>`).join('')}
-  </div>
-  ${barrierList.length?`<div class="drawer-section"><div class="section-title">Barriers Logged</div>
-    ${barrierList.map(b=>`<div class="barrier-item"><span class="b-type">${escHtml(b.type)}</span><span class="b-desc">${escHtml(b.description)}</span><span class="b-time">${escHtml(b.logged_at)}</span></div>`).join('')}</div>`:''}
-  ${actionList.length?`<div class="drawer-section"><div class="section-title">AM Actions</div>
-    ${actionList.map(a=>`<div class="action-item"><span class="a-type">${escHtml(a.type)}</span><span class="a-note">${escHtml(a.note)}</span><span class="a-time">${escHtml(a.logged_at)}</span></div>`).join('')}</div>`:''}
-  ${d.handoff_note?`<div class="drawer-section"><div class="section-title">Handoff Note</div><div class="handoff-note-box">${escHtml(d.handoff_note)}</div></div>`:''}
-  <div class="drawer-actions">
-    <button class="btn btn-blue" onclick="openFeedbackModal('${escHtml(assoc.employee_id)}')">Log Feedback</button>
-    <button class="btn btn-teal" onclick="openSTUModal('${escHtml(assoc.employee_id)}')">STU</button>
-    <button class="btn btn-orange" onclick="openBarrierModal('${escHtml(assoc.employee_id)}')">Log Barrier</button>
-    <button class="btn btn-purple" onclick="openCoachingPacket('${escHtml(assoc.employee_id)}')">Coaching Packet</button>
-    <a class="btn btn-gray" href="https://atoz.amazon.work/engage/conversation-hub?f=NrBEHkDkH0AUCUCiBZAkgZUaANAb1AG4CGANgK4CmoAXKAC4BOloAvgLrZgDCUAaovHQBBACqooceOAAiAVS4icwfMXJLVaqLkKSs8hUs1qJIAcSEmsLPasOgh0obEXs2bIA" target="_blank">Engage</a>
-    <a class="btn btn-gray" href="https://adapt-iad.amazon.com/#/employee-dashboard/${escHtml(assoc.employee_id)}" target="_blank">Adapt</a>
-  </div>`;
+// ── Expiry banner ─────────────────────────────────────────────────────────────
+function renderExpiryBanner() {
+  const el = document.getElementById('expiry-banner');
+  if (!el) return;
+  if (!S.expiring.length) { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  el.innerHTML = `<strong>⚠ ${S.expiring.length} feedback(s) expiring within 7 days:</strong>&nbsp;` +
+    S.expiring.map(f => `${esc(f.name)} (${esc(f.label)} — ${f.days_remaining}d)`).join(', ') +
+    `&nbsp;<button onclick="document.getElementById('expiry-banner').classList.add('hidden')" style="margin-left:auto;background:none;border:none;color:#fed7aa;cursor:pointer;font-size:14px">✕</button>`;
 }
 
-function renderRankings(){
-  const el=document.getElementById('rankings-content');if(!el)return;
-  const sorted=[...state.associates].sort((a,b)=>(b.pt_pct||0)-(a.pt_pct||0));
-  const top5=sorted.slice(0,5);
-  const bottom5=sorted.slice(-5).reverse();
-  const amActions=state.ams.map(am=>({name:am.name,actions:am.action_count||0,avg_pt:am.avg_pt})).sort((a,b)=>b.actions-a.actions);
-  el.innerHTML=`
-  <div class="rankings-grid">
-    <div class="rank-card"><div class="rank-title">🏆 Top Performers</div>
-      ${top5.map((a,i)=>`<div class="rank-row"><span class="rank-num">#${i+1}</span><span class="rank-name">${escHtml(a.name)}</span><span class="rank-pt ${ptClass(a.pt_pct)}">${fmt(a.pt_pct)}</span></div>`).join('')}
-    </div>
-    <div class="rank-card"><div class="rank-title">⚠ Needs Attention</div>
-      ${bottom5.map((a,i)=>`<div class="rank-row"><span class="rank-num">${i+1}</span><span class="rank-name">${escHtml(a.name)}</span><span class="rank-pt ${ptClass(a.pt_pct)}">${fmt(a.pt_pct)}</span><button class="mini-btn" onclick="openDrawer('${escHtml(a.employee_id)}')">View</button></div>`).join('')}
-    </div>
-    <div class="rank-card"><div class="rank-title">📋 AM Accountability</div>
-      ${amActions.map(am=>`<div class="rank-row"><span class="rank-name">${escHtml(am.name)}</span><span class="rank-pt ${ptClass(am.avg_pt)}">${fmt(am.avg_pt)} avg</span><span class="rank-actions">${am.actions} actions</span></div>`).join('')}
-    </div>
-    <div class="rank-card" id="would-be-card"><div class="rank-title">💡 Would-Be PT</div><div class="would-be-loading">Loading…</div></div>
-  </div>
-  <div class="pattern-watch-section"><div class="rank-title">🔍 Pattern Watch</div><div id="pattern-watch-list"></div></div>`;
-  loadWouldBe();renderPatternWatch();
-}
-async function loadWouldBe(){
-  const r=await apiFetch('/api/would-be-pt');
-  const card=document.getElementById('would-be-card');if(!card)return;
-  if(!r){card.querySelector('.would-be-loading').textContent='Failed to load';return;}
-  const list=r.scenarios||[];
-  card.innerHTML=`<div class="rank-title">💡 Would-Be PT</div>`+(list.length===0?'<div class="empty-small">No scenarios</div>':
-    list.map(s=>`<div class="rank-row"><span class="rank-name">${escHtml(s.description)}</span><span class="rank-pt ${ptClass(s.projected_pt)}">${fmt(s.projected_pt)}</span></div>`).join(''));
-}
-function renderPatternWatch(){
-  const el=document.getElementById('pattern-watch-list');if(!el)return;
-  const pw=state.associates.filter(a=>a.patterns&&a.patterns.length).map(a=>({name:a.name,id:a.employee_id,patterns:a.patterns}));
-  if(!pw.length){el.innerHTML='<div class="empty-small">No patterns detected</div>';return;}
-  el.innerHTML=pw.map(a=>`<div class="pw-row" onclick="openDrawer('${escHtml(a.id)}')"><span class="pw-name">${escHtml(a.name)}</span>${a.patterns.map(p=>`<span class="chip chip-purple">${escHtml(p.label||p)}</span>`).join('')}</div>`).join('');
-}
-
-function renderETI(){
-  const el=document.getElementById('eti-content');if(!el)return;
-  if(!state.eti.length){el.innerHTML='<div class="empty-state">ETI/TPH data not available. Check Vantage connection.</div>';return;}
-  const avgEti=state.eti.reduce((s,r)=>s+(r.eti||0),0)/state.eti.length;
-  const avgTph=state.eti.reduce((s,r)=>s+(r.tph||0),0)/state.eti.length;
-  const low=state.eti.filter(r=>r.eti<80);
-  let sug='';
-  if(avgEti<75)sug='⚠ Floor-wide ETI low — check for system slowdowns or mislabeled bins.';
-  else if(low.length>state.eti.length*0.3)sug='⚠ 30%+ of associates below 80% ETI — consider path reassignment.';
-  else sug='✓ ETI/TPH within normal range.';
-  el.innerHTML=`
-  <div class="eti-summary">
-    <div class="eti-card"><div class="eti-label">Avg ETI</div><div class="eti-val">${avgEti.toFixed(1)}%</div></div>
-    <div class="eti-card"><div class="eti-label">Avg TPH</div><div class="eti-val">${avgTph.toFixed(0)}</div></div>
-    <div class="eti-card"><div class="eti-label">Below 80% ETI</div><div class="eti-val ${low.length>0?'text-orange':''}">${low.length}</div></div>
-  </div>
-  <div class="suggestion-box">${sug}</div>
-  <div class="eti-table-wrap"><table class="eti-table">
-    <thead><tr><th>Name</th><th>ID</th><th>ETI%</th><th>TPH</th></tr></thead>
-    <tbody>${[...state.eti].sort((a,b)=>(a.eti||0)-(b.eti||0)).map(r=>`<tr class="${r.eti<80?'row-warn':''}"><td>${escHtml(r.name)}</td><td>${escHtml(r.employee_id)}</td><td class="${r.eti<80?'text-orange':'text-green'}">${r.eti!=null?r.eti.toFixed(1)+'%':'–'}</td><td>${r.tph!=null?r.tph.toFixed(0):'–'}</td></tr>`).join('')}</tbody>
-  </table></div>`;
-}
-
-function openFeedbackModal(employeeId){
-  const assoc=state.associates.find(a=>a.employee_id===employeeId);if(!assoc)return;
-  document.getElementById('modal-title').textContent=`Log Feedback — ${assoc.name}`;
-  document.getElementById('modal-body').innerHTML=`
-  <form id="feedback-form">
-    <input type="hidden" name="employee_id" value="${escHtml(employeeId)}">
-    <label>Type<select name="type"><option>Doc Coaching</option><option>First Warning</option><option>Second Warning</option><option>Final Warning</option></select></label>
-    <label>Date<input type="date" name="date" value="${new Date().toISOString().slice(0,10)}" required></label>
-    <label>Note<textarea name="note" rows="3" placeholder="Context, what was discussed…"></textarea></label>
-    <div class="modal-actions"><button type="submit" class="btn btn-blue">Save</button><button type="button" class="btn btn-gray" onclick="closeModal()">Cancel</button></div>
-  </form>`;
-  document.getElementById('feedback-form').onsubmit=async(e)=>{
-    e.preventDefault();const fd=new FormData(e.target);const payload=Object.fromEntries(fd);
-    const r=await apiPost('/api/feedback',payload);
-    if(r?.ok){closeModal();showToast('Feedback saved','success');loadAll();}else showToast('Failed to save','error');
-  };
-  openModal();
-}
-
-async function openSTUModal(employeeId){
-  const assoc=state.associates.find(a=>a.employee_id===employeeId);if(!assoc)return;
-  document.getElementById('modal-title').textContent=`STU — ${assoc.name}`;
-  document.getElementById('modal-body').innerHTML='<div class="loading">Loading template…</div>';
-  openModal();
-  const r=await apiFetch(`/api/stu-template/${encodeURIComponent(employeeId)}`);
-  const tmpl=r?.template||`Situation: \nTask: \nUrgency: `;
-  document.getElementById('modal-body').innerHTML=`
-  <textarea id="stu-text" rows="10" style="width:100%;font-family:monospace">${escHtml(tmpl)}</textarea>
-  <div class="modal-actions"><button class="btn btn-blue" onclick="copySTU()">Copy</button><button class="btn btn-gray" onclick="closeModal()">Close</button></div>`;
-}
-function copySTU(){
-  const el=document.getElementById('stu-text');if(!el)return;
-  navigator.clipboard.writeText(el.value).then(()=>showToast('Copied','success'));
-}
-
-function openBarrierModal(employeeId){
-  const assoc=state.associates.find(a=>a.employee_id===employeeId);if(!assoc)return;
-  document.getElementById('modal-title').textContent=`Log Barrier — ${assoc.name}`;
-  document.getElementById('modal-body').innerHTML=`
-  <form id="barrier-form">
-    <input type="hidden" name="employee_id" value="${escHtml(employeeId)}">
-    <label>Barrier Type<select name="type"><option>Equipment</option><option>System Down</option><option>Path Issue</option><option>Staffing</option><option>Training Gap</option><option>Other</option></select></label>
-    <label>Description<textarea name="description" rows="3" required placeholder="What happened?"></textarea></label>
-    <label>Action Taken<input type="text" name="action_taken" placeholder="What did you do?"></label>
-    <div class="modal-actions"><button type="submit" class="btn btn-orange">Save</button><button type="button" class="btn btn-gray" onclick="closeModal()">Cancel</button></div>
-  </form>`;
-  document.getElementById('barrier-form').onsubmit=async(e)=>{
-    e.preventDefault();const fd=new FormData(e.target);const payload=Object.fromEntries(fd);
-    const r=await apiPost('/api/barrier',payload);
-    if(r?.ok){closeModal();showToast('Barrier logged','success');loadAll();}else showToast('Failed to save','error');
-  };
-  openModal();
-}
-
-function openNewHireModal(){
-  document.getElementById('modal-title').textContent='Add New Hire';
-  document.getElementById('modal-body').innerHTML=`
-  <form id="newhire-form">
-    <label>Employee ID<input type="text" name="employee_id" required placeholder="A12345678"></label>
-    <label>Start Date<input type="date" name="start_date" value="${new Date().toISOString().slice(0,10)}" required></label>
-    <label>Note<input type="text" name="note" placeholder="Path, trainer, etc."></label>
-    <div class="modal-actions"><button type="submit" class="btn btn-blue">Add</button><button type="button" class="btn btn-gray" onclick="closeModal()">Cancel</button></div>
-  </form>`;
-  document.getElementById('newhire-form').onsubmit=async(e)=>{
-    e.preventDefault();const fd=new FormData(e.target);const payload=Object.fromEntries(fd);
-    const r=await apiPost('/api/new-hire',payload);
-    if(r?.ok){closeModal();showToast('New hire added','success');loadAll();}else showToast('Failed to save','error');
-  };
-  openModal();
-}
-
-async function openHandoffModal(){
-  document.getElementById('modal-title').textContent='Shift Handoff';
-  document.getElementById('modal-body').innerHTML='<div class="loading">Loading…</div>';
-  openModal();
-  const r=await apiFetch('/api/handoff-summary');
-  const summary=r?.summary||'';
-  document.getElementById('modal-body').innerHTML=`
-  <p class="handoff-intro">Review and edit the handoff note for the incoming AM.</p>
-  <textarea id="handoff-text" rows="12" style="width:100%">${escHtml(summary)}</textarea>
-  <div class="modal-actions">
-    <button class="btn btn-blue" onclick="saveHandoff()">Save Handoff</button>
-    <button class="btn btn-teal" onclick="copyHandoff()">Copy</button>
-    <button class="btn btn-gray" onclick="closeModal()">Cancel</button>
-  </div>`;
-}
-async function saveHandoff(){
-  const text=document.getElementById('handoff-text')?.value;if(!text)return;
-  const r=await apiPost('/api/handoff',{note:text});
-  if(r?.ok){closeModal();showToast('Handoff saved','success');}else showToast('Failed to save','error');
-}
-function copyHandoff(){
-  const el=document.getElementById('handoff-text');if(!el)return;
-  navigator.clipboard.writeText(el.value).then(()=>showToast('Copied','success'));
-}
-
-async function openCoachingPacket(employeeId){
-  const assoc=state.associates.find(a=>a.employee_id===employeeId);if(!assoc)return;
-  document.getElementById('modal-title').textContent=`Coaching Packet — ${assoc.name}`;
-  document.getElementById('modal-body').innerHTML='<div class="loading">Generating…</div>';
-  openModal();
-  const[detail,feedback,barriers]=await Promise.all([
-    apiFetch(`/api/associate/${encodeURIComponent(employeeId)}`),
-    apiFetch(`/api/feedback/${encodeURIComponent(employeeId)}`),
-    apiFetch(`/api/barriers/${encodeURIComponent(employeeId)}`),
-  ]);
-  const d=detail||assoc;
-  const feedbacks=feedback?.feedbacks||[];
-  const barrierList=barriers?.barriers||[];
-  const packet=`COACHING PREP PACKET
-Generated: ${new Date().toLocaleString()}
-==============================
-ASSOCIATE: ${d.name}
-ID: ${d.employee_id}
-Manager: ${d.manager}
-Current PT: ${d.pt_pct!=null?d.pt_pct.toFixed(1)+'%':'–'}
-Projected EOD: ${d.projected_pt!=null?d.projected_pt.toFixed(1)+'%':'–'}
-
-FLAGS: ${(d.flags||[]).join(', ')||'None'}
-PATTERNS: ${(d.patterns||[]).map(p=>p.label||p).join(', ')||'None'}
-
-FEEDBACK HISTORY:
-${feedbacks.length===0?'No feedback on record':feedbacks.map(f=>`  ${f.date} — ${f.type}${f.note?': '+f.note:''} (expires ${f.expires_on})`).join('\n')}
-
-BARRIERS LOGGED:
-${barrierList.length===0?'None':barrierList.map(b=>`  ${b.logged_at} — ${b.type}: ${b.description}`).join('\n')}
-
-NOTES:
-${d.handoff_note||''}`;
-  document.getElementById('modal-body').innerHTML=`
-  <pre id="packet-text" class="packet-pre">${escHtml(packet)}</pre>
-  <div class="modal-actions">
-    <button class="btn btn-blue" onclick="copyPacket()">Copy</button>
-    <button class="btn btn-teal" onclick="printPacket()">Print</button>
-    <button class="btn btn-gray" onclick="closeModal()">Close</button>
-  </div>`;
-}
-function copyPacket(){
-  const el=document.getElementById('packet-text');if(!el)return;
-  navigator.clipboard.writeText(el.textContent).then(()=>showToast('Copied','success'));
-}
-function printPacket(){
-  const el=document.getElementById('packet-text');if(!el)return;
-  const w=window.open('','_blank');
-  w.document.write(`<pre style="font-family:monospace;font-size:12px;padding:20px">${el.innerHTML}</pre>`);
-  w.document.close();w.print();
-}
-
-function openBarrierPatterns(){
-  document.getElementById('modal-title').textContent='Systemic Barrier Patterns';
-  const patterns=state.barrierPatterns;
-  document.getElementById('modal-body').innerHTML=patterns.length===0
-    ?'<div class="empty-state">No systemic patterns detected.</div>'
-    :patterns.map(p=>`<div class="barrier-pattern-item"><div class="bp-type">${escHtml(p.type)}</div><div class="bp-count">${p.count} occurrences</div><div class="bp-associates">${escHtml((p.associates||[]).join(', '))}</div></div>`).join('');
-  openModal();
-}
-
-function openModal(){document.getElementById('modal-overlay').classList.add('open');document.getElementById('modal-box').classList.add('open');}
-function closeModal(){document.getElementById('modal-overlay').classList.remove('open');document.getElementById('modal-box').classList.remove('open');}
-
-function setShift(shift){
-  state.currentShift=shift;
-  document.querySelectorAll('.shift-btn').forEach(b=>b.classList.toggle('active',b.dataset.shift===shift));
-  apiFetch(`/api/set-shift?shift=${shift}`).then(()=>loadAll());
-}
-
-function switchTab(tab){
-  state.activeTab=tab;
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
-  document.querySelectorAll('.tab-pane').forEach(p=>p.style.display=p.id===tab+'-pane'?'block':'none');
-  if(tab==='floor')renderFloor();
-  else if(tab==='rankings')renderRankings();
-  else if(tab==='eti')renderETI();
-}
-
-function renderAll(){
-  renderExpiryBanner();
-  if(state.activeTab==='floor')renderFloor();
-  else if(state.activeTab==='rankings')renderRankings();
-  else if(state.activeTab==='eti')renderETI();
-  if(state.drawerOpen&&state.selectedAssociate){
-    const fresh=state.associates.find(a=>a.employee_id===state.selectedAssociate.employee_id);
-    if(fresh)renderDrawer(fresh);
+// ── Summary cards ─────────────────────────────────────────────────────────────
+function renderSummary() {
+  const valid = S.associates.filter(a => a.pt != null);
+  const avg   = valid.length ? valid.reduce((s,a) => s+a.pt, 0)/valid.length : null;
+  const flagged = S.associates.filter(a => a.flags?.length).length;
+  const el = id => document.getElementById(id);
+  if (el('s-avg'))     el('s-avg').textContent     = avg != null ? avg.toFixed(1)+'%' : '–';
+  if (el('s-flagged')) el('s-flagged').textContent = flagged;
+  if (el('s-count'))   el('s-count').textContent   = S.associates.length;
+  if (el('s-expiring'))el('s-expiring').textContent= S.expiring.length;
+  if (el('s-wouldbe')) {
+    const wb = S.wouldBe;
+    el('s-wouldbe').textContent = wb ? wb.would_be.toFixed(1)+'%' : '–';
   }
 }
 
-function startAutoRefresh(){
-  if(state.refreshInterval)clearInterval(state.refreshInterval);
-  state.refreshInterval=setInterval(loadAll,3*60*1000);
+// ── AM filter dropdown ────────────────────────────────────────────────────────
+function populateAMFilter() {
+  const sel = document.getElementById('am-filter');
+  if (!sel) return;
+  const ams = [...new Set(S.associates.map(a => a.manager).filter(Boolean))].sort();
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">All Managers</option>' +
+    ams.map(m => `<option value="${esc(m)}" ${m===cur?'selected':''}>${esc(m)}</option>`).join('');
 }
 
-function handleSearch(e){
-  const q=e.target.value.trim().toLowerCase();
-  document.querySelectorAll('.assoc-row').forEach(row=>{
-    row.style.display=row.textContent.toLowerCase().includes(q)?'':'none';
+// ── Floor view ────────────────────────────────────────────────────────────────
+function renderFloor() {
+  const container = document.getElementById('am-cards');
+  if (!container) return;
+
+  let rows = [...S.associates];
+  // Apply view filter
+  if (S.currentView === 'flagged') rows = rows.filter(a => a.flags?.length);
+  else if (S.currentView === 'newhires') rows = rows.filter(a => a.new_hire);
+  // Apply AM filter
+  if (S.amFilter) rows = rows.filter(a => a.manager === S.amFilter);
+
+  // Group by manager
+  const map = {};
+  for (const a of rows) {
+    const m = a.manager || 'Unknown';
+    if (!map[m]) map[m] = [];
+    map[m].push(a);
+  }
+  // Sort AMs by avg PT ascending (worst first)
+  const groups = Object.entries(map).map(([name, aas]) => {
+    const v = aas.filter(a => a.pt != null);
+    const avg = v.length ? v.reduce((s,a) => s+a.pt, 0)/v.length : null;
+    return {name, aas, avg};
+  }).sort((a,b) => (a.avg ?? 100) - (b.avg ?? 100));
+
+  if (!groups.length) {
+    container.innerHTML = '<div class="empty-msg">No associates match current filter.</div>';
+    return;
+  }
+  container.innerHTML = groups.map((g,gi) => renderAMCard(g, gi)).join('');
+}
+
+function renderAMCard({name, aas, avg}, gi) {
+  const cls = ptCls(avg);
+  const flagCount = aas.filter(a => a.flags?.length).length;
+  // Sort AAs: flagged first, then worst PT
+  const sorted = [...aas].sort((a,b) => {
+    const fa = a.flags?.length || 0, fb = b.flags?.length || 0;
+    if (fa !== fb) return fb - fa;
+    return (a.pt ?? 100) - (b.pt ?? 100);
   });
+  return `
+  <div class="am-card" id="amc-${gi}">
+    <div class="am-header" onclick="toggleAMCard(${gi})">
+      <span class="am-name">${esc(name)}</span>
+      <div class="am-stats">
+        <span>${sorted.length} AAs</span>
+        ${flagCount ? `<span class="text-red">${flagCount} flagged</span>` : ''}
+      </div>
+      <span class="am-pt ${cls}">${avg != null ? avg.toFixed(1)+'%' : '–'}</span>
+      <span class="am-chevron">▼</span>
+    </div>
+    <div class="am-body" id="amb-${gi}">
+      ${sorted.map((a,i) => renderAARow(a, i+1)).join('')}
+    </div>
+  </div>`;
+}
+function toggleAMCard(gi) {
+  const card = document.getElementById('amc-'+gi);
+  const body = document.getElementById('amb-'+gi);
+  if (!card || !body) return;
+  card.classList.toggle('collapsed');
+  body.style.display = card.classList.contains('collapsed') ? 'none' : '';
 }
 
-document.addEventListener('DOMContentLoaded',()=>{
-  document.querySelectorAll('.shift-btn').forEach(b=>b.addEventListener('click',()=>setShift(b.dataset.shift)));
-  document.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
-  const bell=document.getElementById('bell-btn');if(bell)bell.addEventListener('click',toggleNotifPanel);
-  const overlay=document.getElementById('drawer-overlay');if(overlay)overlay.addEventListener('click',closeDrawer);
-  const mOverlay=document.getElementById('modal-overlay');if(mOverlay)mOverlay.addEventListener('click',closeModal);
-  const search=document.getElementById('search-input');if(search)search.addEventListener('input',handleSearch);
-  const nhBtn=document.getElementById('new-hire-btn');if(nhBtn)nhBtn.addEventListener('click',openNewHireModal);
-  const hoBtn=document.getElementById('handoff-btn');if(hoBtn)hoBtn.addEventListener('click',openHandoffModal);
-  const bpBtn=document.getElementById('barrier-patterns-btn');if(bpBtn)bpBtn.addEventListener('click',openBarrierPatterns);
-  const refBtn=document.getElementById('refresh-btn');if(refBtn)refBtn.addEventListener('click',loadAll);
-  const h=new Date().getHours();
-  state.currentShift=(h>=18||h<6)?'night':'day';
-  document.querySelectorAll('.shift-btn').forEach(b=>b.classList.toggle('active',b.dataset.shift===state.currentShift));
+function renderAARow(a, rank) {
+  const pt      = a.pt;
+  const cls     = ptCls(pt);
+  const barPct  = pt != null ? Math.min(100, Math.max(0, pt)) : 0;
+  const flags   = a.flags || [];
+  const proj    = a.projection;
+  const trend   = proj ? (proj.trending - (pt||0)) : null;
+  const trendTxt= trend != null ? (trend > 0.5 ? '▲' : trend < -0.5 ? '▼' : '►') : '';
+  const trendCls= trend != null ? (trend > 0.5 ? 'trend-up' : trend < -0.5 ? 'trend-down' : '') : '';
+  return `
+  <div class="aa-row ${flags.length ? 'flagged-row' : ''}" onclick="openDrawer('${esc(a.login||a.id)}')">
+    <span class="aa-num">${rank}</span>
+    <div class="aa-info">
+      <div class="aa-name">${esc(a.name)}${a.new_hire ? '<span class="new-hire-chip">NEW</span>' : ''}</div>
+      <div class="aa-badge">${esc(a.id||a.login)}</div>
+    </div>
+    <span class="aa-pt-num ${cls}">${fmt(pt)}</span>
+    <div class="pt-bar-wrap">
+      <div class="pt-bar"><div class="pt-bar-fill ${cls}" style="width:${barPct}%"></div></div>
+      <span class="pt-trend ${trendCls}">${proj ? 'Proj: '+fmt(proj.trending) : ''} ${trendTxt}</span>
+    </div>
+    <div class="flags-wrap">
+      ${flags.map(f => `<span class="flag-chip ${severityCls(f.severity)}">${esc(f.label)}</span>`).join('')}
+      ${a.handoff_note ? '<span class="flag-chip medium">📋</span>' : ''}
+    </div>
+  </div>`;
+}
+
+// ── Drawer ────────────────────────────────────────────────────────────────────
+async function openDrawer(login) {
+  S.selectedLogin = login;
+  const a = S.associates.find(x => (x.login||x.id) === login) || {};
+  // Set header immediately
+  const dname = document.getElementById('d-name');
+  const dsub  = document.getElementById('d-sub');
+  if (dname) dname.textContent = a.name || login;
+  if (dsub)  dsub.textContent  = `${esc(a.id||a.login||'')} · ${esc(a.manager||'')}`;
+  // Show drawer
+  const overlay = document.getElementById('drawer-overlay');
+  const drawer  = document.getElementById('drawer');
+  if (overlay) overlay.classList.remove('hidden');
+  if (drawer)  { drawer.classList.remove('hidden'); requestAnimationFrame(() => drawer.classList.add('open')); }
+  // Load body
+  const body = document.getElementById('drawer-body');
+  if (body) body.innerHTML = '<div class="loading-msg">Loading…</div>';
+  await renderDrawerBody(login, a);
+}
+function closeDrawer() {
+  const drawer  = document.getElementById('drawer');
+  const overlay = document.getElementById('drawer-overlay');
+  if (drawer)  { drawer.classList.remove('open'); setTimeout(() => drawer.classList.add('hidden'), 260); }
+  if (overlay) overlay.classList.add('hidden');
+  S.selectedLogin = null;
+}
+
+async function renderDrawerBody(login, a) {
+  const body = document.getElementById('drawer-body');
+  if (!body) return;
+
+  const [fbRes, barRes, trendRes, pattRes] = await Promise.all([
+    api(`/api/feedback/${encodeURIComponent(login)}`),
+    api(`/api/barriers/${encodeURIComponent(login)}`),
+    api(`/api/trend/${encodeURIComponent(login)}?shift=${S.currentShift}`),
+    api(`/api/patterns/${encodeURIComponent(login)}`),
+  ]);
+
+  const feedbacks  = fbRes?.records || [];
+  const nextAction = fbRes?.next_action;
+  const barriers   = Array.isArray(barRes) ? barRes : [];
+  const trendPts   = trendRes?.points || [];
+  const pattern    = pattRes || a.pattern || {};
+  const flags      = a.flags || [];
+  const proj       = a.projection;
+  const andons     = S.andons.filter(x => x.login === login);
+  const pt         = a.pt;
+
+  let html = '';
+
+  // Next action
+  if (nextAction) {
+    html += `<div class="d-section">
+      <div class="d-section-title">Next Action</div>
+      <div class="next-action-badge" style="background:${esc(nextAction.color||'#f59e0b')}22;border:1px solid ${esc(nextAction.color||'#f59e0b')}">
+        <span style="color:${esc(nextAction.color||'#f59e0b')};font-size:14px">●</span>
+        <span>${esc(nextAction.label)}</span>
+      </div>
+      <div class="na-reason">${esc(nextAction.reason)}</div>
+      ${nextAction.days_remaining != null ? `<div class="expiry-pill ${nextAction.days_remaining<=7?'crit':nextAction.days_remaining<=14?'warn':''}">${nextAction.days_remaining}d remaining</div>` : ''}
+    </div>`;
+  }
+
+  // PT / projection
+  if (proj) {
+    html += `<div class="d-section">
+      <div class="d-section-title">Projection</div>
+      <div class="metric-row"><span class="metric-label">Current PT</span><span class="metric-val ${ptCls(pt)}">${fmt(pt)}</span></div>
+      <div class="metric-row"><span class="metric-label">Trending (same pace)</span><span class="metric-val ${ptCls(proj.trending)}">${fmt(proj.trending)}</span></div>
+      <div class="metric-row"><span class="metric-label">Best case</span><span class="metric-val ${ptCls(proj.best_case)}">${fmt(proj.best_case)}</span></div>
+      <div class="metric-row"><span class="metric-label">Can hit 88%?</span><span class="metric-val ${proj.can_hit_88?'text-green':'text-red'}">${proj.can_hit_88?'Yes':'No'}</span></div>
+      <div class="metric-row"><span class="metric-label">Elapsed / Remaining</span><span class="metric-val">${proj.elapsed_hrs}h / ${proj.remaining_hrs}h</span></div>
+    </div>`;
+  }
+
+  // Flags
+  if (flags.length) {
+    html += `<div class="d-section">
+      <div class="d-section-title">Active Flags</div>
+      <div class="flags-wrap" style="flex-wrap:wrap;gap:6px;padding:4px 0">
+        ${flags.map(f => `<span class="flag-chip ${severityCls(f.severity)}">${esc(f.label)}</span>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  // Pattern
+  if (pattern.consecutive_low >= 2) {
+    html += `<div class="d-section">
+      <div class="d-section-title">Trend Pattern</div>
+      <div class="pattern-badge">${esc(pattern.streak_label)}</div>
+      ${pattern.history?.slice(0,5).map(h => `<div class="metric-row">
+        <span class="metric-label">${esc(h.date)} ${esc(h.shift)}</span>
+        <span class="metric-val ${ptCls(h.pt)}">${fmt(h.pt)}</span>
+      </div>`).join('') || ''}
+    </div>`;
+  }
+
+  // Momentum (trend chart from DB snapshots)
+  if (trendPts.length >= 2) {
+    const max = Math.max(...trendPts.map(p=>p.pt||0)) || 100;
+    html += `<div class="d-section">
+      <div class="d-section-title">Shift Momentum</div>
+      <div class="momentum-bars">
+        ${trendPts.slice(-8).map(p => {
+          const h = Math.round((p.pt||0)/max*60);
+          const c = ptCls(p.pt);
+          return `<div class="momentum-bar-wrap">
+            <div class="momentum-pct ${c}">${fmt(p.pt,0)}</div>
+            <div class="momentum-bar ${c}" style="height:${h}px;background:var(--${c==='good'?'green':c==='warn'?'orange':'red'})"></div>
+            <div class="momentum-lbl">${new Date(p.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  // Andons
+  if (andons.length) {
+    html += `<div class="d-section"><div class="d-section-title">Active Andons</div>
+      ${andons.map(an => `<div class="andon-item"><div class="andon-top"><span>${esc(an.description||an.type||'Andon')}</span><span class="andon-dwell">${esc(an.dwell||'')}</span></div></div>`).join('')}
+    </div>`;
+  }
+
+  // Feedback history
+  html += `<div class="d-section"><div class="d-section-title">Feedback History</div>
+    ${feedbacks.length === 0
+      ? '<div class="empty-msg">No feedback on record</div>'
+      : feedbacks.map(f => `<div class="metric-row">
+          <span class="metric-label">${esc(f.date)}</span>
+          <span class="metric-val">${esc(LABELS[f.type]||f.type)}</span>
+          <span style="font-size:10px;color:var(--muted)">${esc(f.notes||'')}</span>
+        </div>`).join('')}
+  </div>`;
+
+  // Barriers
+  if (barriers.length) {
+    html += `<div class="d-section"><div class="d-section-title">Barriers</div>
+      ${barriers.slice(0,5).map(b => `<div class="metric-row">
+        <span class="metric-label">${esc(b.date)}</span>
+        <span class="metric-val">${esc(b.barrier)}</span>
+      </div>`).join('')}
+    </div>`;
+  }
+
+  // Handoff note
+  if (a.handoff_note) {
+    html += `<div class="d-section"><div class="d-section-title">Handoff Note</div>
+      <div style="font-size:12px;color:var(--text);line-height:1.5">${esc(a.handoff_note.note)}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:4px">from ${esc(a.handoff_note.am_name)}</div>
+    </div>`;
+  }
+
+  // New hire info
+  if (a.new_hire) {
+    html += `<div class="d-section"><div class="d-section-title">New Hire</div>
+      <div class="metric-row"><span class="metric-label">Start Date</span><span class="metric-val">${esc(a.new_hire.start_date)}</span></div>
+      <div class="metric-row"><span class="metric-label">Day #</span><span class="metric-val">${a.new_hire.day}</span></div>
+      ${a.new_hire.notes ? `<div style="font-size:11px;color:var(--muted2);margin-top:4px">${esc(a.new_hire.notes)}</div>` : ''}
+    </div>`;
+  }
+
+  // Action buttons
+  html += `<div class="action-row">
+    <button class="pri-btn" onclick="openFeedbackModal('${esc(login)}')">Log Feedback</button>
+    <button class="sec-action-btn" onclick="openSTUModal('${esc(login)}')">STU</button>
+    <button class="sec-action-btn warn-btn" onclick="openBarrierModal('${esc(login)}')">Log Barrier</button>
+    <button class="sec-action-btn" onclick="openCoachingPrep('${esc(login)}')">Coaching Packet</button>
+    <a class="sec-action-btn" href="https://atoz.amazon.work/engage/conversation-hub?f=NrBEHkDkH0AUCUCiBZAkgZUaANAb1AG4CGANgK4CmoAXKAC4BOloAvgLrZgDCUAaovHQBBACqooceOAAiAVS4icwfMXJLVaqLkKSs8hUs1qJIAcSEmsLPasOgh0obEXs2bIA" target="_blank">Engage</a>
+    <a class="sec-action-btn" href="https://adapt-iad.amazon.com/#/employee-dashboard/${esc(login)}" target="_blank">Adapt</a>
+  </div>`;
+
+  body.innerHTML = html;
+}
+
+// Feedback labels (client-side)
+const LABELS = {
+  document_coaching:'Document Coaching', first_warning:'First Warning',
+  second_warning:'Second Warning', final_warning:'Final Warning',
+  separation:'Separation', stu:'STU Only',
+};
+
+// ── Rankings tab ──────────────────────────────────────────────────────────────
+async function renderRankings() {
+  const el = document.getElementById('rankings-content');
+  if (!el) return;
+  el.innerHTML = '<div class="loading-msg">Loading rankings…</div>';
+  const r = await api(`/api/rankings?shift=${S.currentShift}`);
+  if (!r) { el.innerHTML = '<div class="empty-msg">Failed to load.</div>'; return; }
+
+  const managers = r.managers || [];
+  const top      = r.top_performers || [];
+  const flagged  = r.most_flagged || [];
+  const patterns = r.patterns || [];
+  const wb       = r.would_be;
+
+  el.innerHTML = `
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+    <div class="rank-section">
+      <div class="rank-title">AM Accountability</div>
+      ${managers.map(m => `<div class="rank-row">
+        <div style="flex:1">
+          <div class="rank-name">${esc(m.name)}</div>
+          <div class="rank-sub">${m.aa_count} AAs · ${m.actions_7d} actions (7d)</div>
+        </div>
+        <span class="rank-pt ${ptCls(m.pt)}">${m.pt != null ? m.pt.toFixed(1)+'%' : '–'}</span>
+        ${m.actions_7d === 0 ? '<span class="am-no-action">No actions</span>' : ''}
+      </div>`).join('')}
+    </div>
+    <div class="rank-section">
+      <div class="rank-title">🏆 Top Performers</div>
+      ${top.slice(0,8).map((a,i) => `<div class="rank-row">
+        <span class="rank-pos">${i+1}</span>
+        <div style="flex:1"><div class="rank-name">${esc(a.name)}</div><div class="rank-sub">${esc(a.manager||'')}</div></div>
+        <span class="rank-pt ${ptCls(a.pt)}">${fmt(a.pt)}</span>
+      </div>`).join('')}
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div class="rank-section">
+      <div class="rank-title">⚠ Most Flagged</div>
+      ${flagged.slice(0,8).map(a => `<div class="rank-row" onclick="openDrawer('${esc(a.login||a.id)}')" style="cursor:pointer">
+        <div style="flex:1"><div class="rank-name">${esc(a.name)}</div>
+        <div class="flags-wrap">${(a.flags||[]).map(f=>`<span class="flag-chip ${severityCls(f.severity)}">${esc(f.label)}</span>`).join('')}</div></div>
+        <span class="rank-pt ${ptCls(a.pt)}">${fmt(a.pt)}</span>
+      </div>`).join('') || '<div class="empty-msg">No flagged associates</div>'}
+    </div>
+    <div class="rank-section">
+      <div class="rank-title">🔍 Pattern Watch</div>
+      ${patterns.length === 0 ? '<div class="empty-msg">No repeat patterns</div>' :
+        patterns.map(p => `<div class="rank-row" onclick="openDrawer('${esc(p.login)}')" style="cursor:pointer">
+          <div style="flex:1"><div class="rank-name">${esc(p.name)}</div>
+          <div class="rank-sub">${esc(p.consecutive)} consecutive shifts &lt;88%</div></div>
+        </div>`).join('')}
+      ${wb ? `<div style="margin-top:12px;padding:10px;background:var(--card2);border-radius:6px;border:1px solid var(--border)">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">Would-Be PT</div>
+        <div style="display:flex;gap:16px;margin-top:6px">
+          <span>Now: <strong class="${ptCls(wb.current)}">${fmt(wb.current)}</strong></span>
+          <span>If fixed: <strong class="${ptCls(wb.would_be)}">${fmt(wb.would_be)}</strong></span>
+          <span class="${wb.delta>0?'text-green':'text-red'}">${fmtD(wb.delta)}</span>
+        </div>
+      </div>` : ''}
+    </div>
+  </div>`;
+}
+
+// ── ETI/TPH tab ───────────────────────────────────────────────────────────────
+async function fetchETI() {
+  const el = document.getElementById('eti-content');
+  if (!el) return;
+  el.innerHTML = '<div class="loading-msg">Fetching ETI/TPH (browser window will open)…</div>';
+  const r = await api(`/api/eti?shift=${S.currentShift}`);
+  if (!r || !r.ok) {
+    el.innerHTML = '<div class="loading-msg">ETI/TPH fetch started — check back in ~30 seconds, then click Fetch again.</div>';
+    return;
+  }
+  renderETI(r);
+}
+function renderETI(r) {
+  const el = document.getElementById('eti-content');
+  if (!el) return;
+  const rows = r.rows || r.data || [];
+  if (!rows.length) { el.innerHTML = '<div class="empty-msg">No ETI/TPH data returned.</div>'; return; }
+  const avg_eti = rows.reduce((s,x) => s+(x.eti||0), 0)/rows.length;
+  const avg_tph = rows.reduce((s,x) => s+(x.tph||0), 0)/rows.length;
+  const low = rows.filter(x => x.eti < 80);
+  let suggestion = '';
+  if (avg_eti < 75) suggestion = 'Floor-wide ETI critically low — check system/path issues.';
+  else if (low.length > rows.length*0.3) suggestion = `${low.length} associates below 80% ETI — review path assignments.`;
+  else suggestion = 'ETI/TPH within normal range.';
+  el.innerHTML = `
+  <div class="eti-grid">
+    <div class="eti-card"><div class="eti-label">Avg ETI</div><div class="eti-val">${avg_eti.toFixed(1)}%</div></div>
+    <div class="eti-card"><div class="eti-label">Avg TPH</div><div class="eti-val">${avg_tph.toFixed(0)}</div></div>
+    <div class="eti-card"><div class="eti-label">Below 80%</div><div class="eti-val ${low.length>0?'text-orange':''}">${low.length}</div></div>
+  </div>
+  <div class="actions-box" style="margin-bottom:16px">
+    <div class="actions-title">Suggested Action</div>
+    <div class="action-item">${esc(suggestion)}</div>
+  </div>
+  <table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="color:var(--muted);font-size:10px;text-transform:uppercase">
+      <th style="padding:6px 8px;text-align:left;border-bottom:1px solid var(--border)">Name</th>
+      <th style="padding:6px 8px;text-align:right;border-bottom:1px solid var(--border)">ETI%</th>
+      <th style="padding:6px 8px;text-align:right;border-bottom:1px solid var(--border)">TPH</th>
+    </tr></thead>
+    <tbody>
+      ${[...rows].sort((a,b)=>(a.eti||0)-(b.eti||0)).map(row => `
+        <tr style="${row.eti<80?'background:#1a0f0f':''};border-bottom:1px solid var(--border)">
+          <td style="padding:7px 8px">${esc(row.name)}</td>
+          <td style="padding:7px 8px;text-align:right;font-weight:600" class="${row.eti<80?'text-red':row.eti<88?'text-orange':'text-green'}">${row.eti!=null?row.eti.toFixed(1)+'%':'–'}</td>
+          <td style="padding:7px 8px;text-align:right">${row.tph!=null?row.tph.toFixed(0):'–'}</td>
+        </tr>`).join('')}
+    </tbody>
+  </table>`;
+}
+
+// ── Modals ────────────────────────────────────────────────────────────────────
+function openModal(title, bodyHTML) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = bodyHTML;
+  show('modal-overlay');
+}
+function closeModal() {
+  hide('modal-overlay');
+  document.getElementById('modal-body').innerHTML = '';
+}
+
+function openFeedbackModal(login) {
+  const a = S.associates.find(x => (x.login||x.id)===login) || {};
+  openModal(`Log Feedback — ${a.name||login}`, `
+    <form id="fb-form">
+      <label>Type<select name="type" style="width:100%;margin-top:4px;padding:8px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px">
+        <option value="document_coaching">Document Coaching</option>
+        <option value="first_warning">First Warning</option>
+        <option value="second_warning">Second Warning</option>
+        <option value="final_warning">Final Warning</option>
+      </select></label>
+      <label style="margin-top:12px;display:block">Date
+        <input type="date" name="date" value="${new Date().toISOString().slice(0,10)}" style="width:100%;margin-top:4px;padding:8px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px">
+      </label>
+      <label style="margin-top:12px;display:block">Notes (optional)
+        <textarea name="notes" rows="3" placeholder="Context, what was discussed…" style="width:100%;margin-top:4px;padding:8px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;resize:vertical"></textarea>
+      </label>
+    </form>
+    <div class="modal-footer">
+      <button class="sec-action-btn" onclick="closeModal()">Cancel</button>
+      <button class="pri-btn" onclick="submitFeedback('${esc(login)}','${esc(a.name||login)}')">Save</button>
+    </div>`);
+}
+async function submitFeedback(login, name) {
+  const form = document.getElementById('fb-form');
+  if (!form) return;
+  const fd = new FormData(form);
+  const r = await apiPost('/api/feedback', {
+    login, name, type: fd.get('type'),
+    date: fd.get('date'), notes: fd.get('notes'), has_pending: false,
+  });
+  if (r?.ok) { closeModal(); showToast('Feedback saved', 'success'); loadAll(); }
+  else showToast('Failed to save feedback', 'warn');
+}
+
+async function openSTUModal(login) {
+  const a = S.associates.find(x => (x.login||x.id)===login) || {};
+  openModal(`STU — ${a.name||login}`, '<div class="loading-msg">Loading template…</div>');
+  const r = await api(`/api/stu-template/${encodeURIComponent(login)}?shift=${S.currentShift}`);
+  const tmpl = r?.template || 'Situation:\nTask:\nUrgency:';
+  document.getElementById('modal-body').innerHTML = `
+    <textarea id="stu-txt" rows="8" style="width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;font-size:13px;line-height:1.6;resize:vertical">${esc(tmpl)}</textarea>
+    <div class="modal-footer">
+      <button class="sec-action-btn" onclick="closeModal()">Close</button>
+      <button class="pri-btn" onclick="navigator.clipboard.writeText(document.getElementById('stu-txt').value).then(()=>showToast('Copied','success'))">Copy</button>
+    </div>`;
+}
+
+function openBarrierModal(login) {
+  const a = S.associates.find(x => (x.login||x.id)===login) || {};
+  openModal(`Log Barrier — ${a.name||login}`, `
+    <form id="bar-form">
+      <label>Barrier Type<select name="barrier" style="width:100%;margin-top:4px;padding:8px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px">
+        <option>Equipment Issue</option><option>System Down</option><option>Path Issue</option>
+        <option>Staffing Gap</option><option>Training Gap</option><option>Other</option>
+      </select></label>
+      <label style="margin-top:12px;display:block">Description
+        <textarea name="flag_type" rows="3" required placeholder="What happened?" style="width:100%;margin-top:4px;padding:8px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;resize:vertical"></textarea>
+      </label>
+    </form>
+    <div class="modal-footer">
+      <button class="sec-action-btn" onclick="closeModal()">Cancel</button>
+      <button class="pri-btn" onclick="submitBarrier('${esc(login)}','${esc(a.name||login)}')">Save</button>
+    </div>`);
+}
+async function submitBarrier(login, name) {
+  const form = document.getElementById('bar-form');
+  if (!form) return;
+  const fd = new FormData(form);
+  const r = await apiPost('/api/barriers', {
+    login, name, barrier: fd.get('barrier'), flag_type: fd.get('flag_type'),
+  });
+  if (r?.ok) { closeModal(); showToast('Barrier logged', 'success'); }
+  else showToast('Failed to save barrier', 'warn');
+}
+
+async function openHandoffModal() {
+  openModal('Shift Handoff Note', '<div class="loading-msg">Loading…</div>');
+  const r = await api(`/api/handoff?shift=${S.currentShift}`);
+  const existing = Array.isArray(r) && r.length ? r[0].note : '';
+  document.getElementById('modal-body').innerHTML = `
+    <p style="font-size:12px;color:var(--muted2);margin-bottom:8px">Write a note for the incoming AM. It will appear in drawer views for all associates.</p>
+    <textarea id="ho-txt" rows="10" style="width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;font-size:13px;line-height:1.6;resize:vertical">${esc(existing)}</textarea>
+    <div class="modal-footer">
+      <button class="sec-action-btn" onclick="navigator.clipboard.writeText(document.getElementById('ho-txt').value).then(()=>showToast('Copied','success'))">Copy</button>
+      <button class="sec-action-btn" onclick="closeModal()">Cancel</button>
+      <button class="pri-btn" onclick="submitHandoff()">Save</button>
+    </div>`;
+}
+async function submitHandoff() {
+  const txt = document.getElementById('ho-txt')?.value;
+  if (!txt) return;
+  const r = await apiPost('/api/handoff', { note: txt });
+  if (r?.ok) { closeModal(); showToast('Handoff saved', 'success'); }
+  else showToast('Failed to save', 'warn');
+}
+
+async function openCoachingPrep(login) {
+  const a = S.associates.find(x => (x.login||x.id)===login) || {};
+  openModal(`Coaching Packet — ${a.name||login}`, '<div class="loading-msg">Generating…</div>');
+  const r = await api(`/api/coaching-prep/${encodeURIComponent(login)}?shift=${S.currentShift}`);
+  if (!r) { document.getElementById('modal-body').innerHTML = '<div class="empty-msg">Failed to load.</div>'; return; }
+  const packet = `COACHING PREP PACKET
+Generated: ${new Date().toLocaleString()}
+==============================
+ASSOCIATE: ${r.name}   ID: ${r.badge}
+Manager: ${r.manager}
+Current PT: ${r.current_pt != null ? r.current_pt.toFixed(1)+'%' : '–'}
+Projected (trending): ${r.projection?.trending != null ? r.projection.trending.toFixed(1)+'%' : '–'}
+Can hit 88%: ${r.projection?.can_hit_88 != null ? (r.projection.can_hit_88 ? 'Yes' : 'No') : '–'}
+
+FLAGS: ${(r.flags||[]).map(f=>f.label).join(', ') || 'None'}
+PATTERN: ${r.pattern?.streak_label || 'None'}
+NEXT ACTION: ${r.next_action?.label || '–'}
+
+FEEDBACK HISTORY:
+${r.feedback_history?.length === 0 ? 'No feedback on record' :
+  (r.feedback_history||[]).map(f=>`  ${f.date} — ${LABELS[f.type]||f.type}${f.notes?': '+f.notes:''}`).join('\n')}
+
+BARRIERS (recent):
+${r.barriers?.length === 0 ? 'None' :
+  (r.barriers||[]).map(b=>`  ${b.date} — ${b.barrier}: ${b.flag_type}`).join('\n')}
+
+STU TEMPLATE:
+"${r.stu_template || ''}"`;
+  document.getElementById('modal-body').innerHTML = `
+    <pre id="prep-txt" style="white-space:pre-wrap;font-family:monospace;font-size:11px;background:var(--bg);padding:14px;border-radius:6px;border:1px solid var(--border);max-height:400px;overflow-y:auto">${esc(packet)}</pre>
+    <div class="modal-footer">
+      <button class="sec-action-btn" onclick="closeModal()">Close</button>
+      <button class="sec-action-btn" onclick="(()=>{const w=window.open('','_blank');w.document.write('<pre style=\\'font-family:monospace;padding:20px\\'>'+document.getElementById('prep-txt').innerHTML+'</pre>');w.print()})()">Print</button>
+      <button class="pri-btn" onclick="navigator.clipboard.writeText(document.getElementById('prep-txt').textContent).then(()=>showToast('Copied','success'))">Copy</button>
+    </div>`;
+}
+
+function openBarrierPatterns() {
+  const patterns = S.barrierPatterns;
+  openModal('Systemic Barrier Patterns',
+    patterns.length === 0
+      ? '<div class="empty-msg">No systemic patterns detected yet.</div>'
+      : patterns.map(p => `<div style="padding:10px;background:var(--card2);border-radius:6px;margin-bottom:8px;border:1px solid var(--border)">
+          <div style="font-weight:600;color:var(--text)">${esc(p.barrier)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px">${p.cnt} occurrences · ${esc(p.associates||'')}</div>
+        </div>`).join('') +
+      `<div class="modal-footer"><button class="sec-action-btn" onclick="closeModal()">Close</button></div>`);
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  S.activeTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab-pane').forEach(p => {
+    const isActive = p.id === 'tab-' + tab;
+    p.classList.toggle('active', isActive);
+    p.classList.toggle('hidden', !isActive);
+  });
+  if (tab === 'rankings') renderRankings();
+  else if (tab === 'floor') renderFloor();
+}
+
+// ── Shift toggle ──────────────────────────────────────────────────────────────
+function setShift(shift) {
+  S.currentShift = shift;
+  document.querySelectorAll('.shift-btn').forEach(b => b.classList.toggle('active', b.dataset.shift === shift));
+  loadAll();
+}
+
+// ── View filter buttons ───────────────────────────────────────────────────────
+function setView(view) {
+  S.currentView = view;
+  document.querySelectorAll('.view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  renderFloor();
+}
+
+// ── Render all ────────────────────────────────────────────────────────────────
+function renderAll() {
+  renderExpiryBanner();
+  renderSummary();
+  populateAMFilter();
+  if (S.activeTab === 'floor') renderFloor();
+  else if (S.activeTab === 'rankings') renderRankings();
+  // Refresh drawer if open
+  if (S.selectedLogin) {
+    const fresh = S.associates.find(a => (a.login||a.id) === S.selectedLogin);
+    if (fresh) renderDrawerBody(S.selectedLogin, fresh);
+  }
+}
+
+// ── Auto-refresh ──────────────────────────────────────────────────────────────
+function startAutoRefresh() {
+  if (S.refreshTimer) clearInterval(S.refreshTimer);
+  S.refreshTimer = setInterval(loadAll, 3 * 60 * 1000);
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  // Detect shift from current time
+  const h = new Date().getHours();
+  S.currentShift = (h >= 18 || h < 6) ? 'night' : 'day';
+  document.querySelectorAll('.shift-btn').forEach(b => b.classList.toggle('active', b.dataset.shift === S.currentShift));
+
+  // Shift buttons
+  document.querySelectorAll('.shift-btn').forEach(b => b.addEventListener('click', () => setShift(b.dataset.shift)));
+  // Tab buttons
+  document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+  // View filter buttons
+  document.querySelectorAll('.view-btn').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
+  // AM filter dropdown
+  const amf = document.getElementById('am-filter');
+  if (amf) amf.addEventListener('change', e => { S.amFilter = e.target.value; renderFloor(); });
+  // Bell / notifications
+  const notifBtn = document.getElementById('notif-btn');
+  if (notifBtn) notifBtn.addEventListener('click', toggleNotifPanel);
+  const clearNotifs = document.getElementById('clear-notifs');
+  if (clearNotifs) clearNotifs.addEventListener('click', () => {
+    S.notifications = []; S.unreadCount = 0; updateBell();
+    document.getElementById('notif-list').innerHTML = '<div class="empty-msg">No alerts</div>';
+  });
+  // Drawer close
+  const drawerClose = document.getElementById('drawer-close');
+  if (drawerClose) drawerClose.addEventListener('click', closeDrawer);
+  const drawerOverlay = document.getElementById('drawer-overlay');
+  if (drawerOverlay) drawerOverlay.addEventListener('click', closeDrawer);
+  // Modal close
+  const modalClose = document.getElementById('modal-close');
+  if (modalClose) modalClose.addEventListener('click', closeModal);
+  const modalOverlay = document.getElementById('modal-overlay');
+  if (modalOverlay) modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
+  // Toolbar buttons
+  const refreshBtn = document.getElementById('refresh-btn');
+  if (refreshBtn) refreshBtn.addEventListener('click', loadAll);
+  const handoffBtn = document.getElementById('handoff-btn');
+  if (handoffBtn) handoffBtn.addEventListener('click', openHandoffModal);
+  const barriersBtn = document.getElementById('barriers-btn');
+  if (barriersBtn) barriersBtn.addEventListener('click', openBarrierPatterns);
+  const fetchEtiBtn = document.getElementById('fetch-eti-btn');
+  if (fetchEtiBtn) fetchEtiBtn.addEventListener('click', fetchETI);
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closeModal(); closeDrawer(); }
+  });
+
   initSSE();
   loadAll();
   startAutoRefresh();
