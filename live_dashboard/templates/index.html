@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLE3 Live Dashboard</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-left">
+    <span class="logo">CLE3 Live</span>
+    <div class="shift-toggle">
+      <button class="shift-btn active" data-shift="night">Night</button>
+      <button class="shift-btn" data-shift="day">Day</button>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span id="status-msg" class="status-msg"></span>
+    <button id="refresh-btn" class="icon-btn" title="Refresh now">⟳</button>
+    <div class="notif-wrap" id="notif-wrap">
+      <button class="icon-btn" id="notif-btn">🔔</button>
+      <span class="notif-badge hidden" id="notif-badge">0</span>
+      <div class="notif-panel hidden" id="notif-panel">
+        <div class="notif-header">Alerts <button id="clear-notifs">Clear</button></div>
+        <div id="notif-list"></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="expiry-banner hidden" id="expiry-banner"></div>
+
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="floor">Floor View</button>
+  <button class="tab-btn" data-tab="rankings">Rankings</button>
+  <button class="tab-btn" data-tab="eti">ETI / TPH</button>
+</nav>
+
+<!-- FLOOR VIEW TAB -->
+<div id="tab-floor" class="tab-pane active">
+  <div class="summary-row" id="summary-row">
+    <div class="sum-card"><div class="sum-label">Floor Avg PT</div><div class="sum-val" id="s-avg">—</div></div>
+    <div class="sum-card red"><div class="sum-label">Flagged</div><div class="sum-val" id="s-flagged">—</div></div>
+    <div class="sum-card green"><div class="sum-label">Would-Be PT</div><div class="sum-val" id="s-wouldbe">—</div></div>
+    <div class="sum-card"><div class="sum-label">Associates</div><div class="sum-val" id="s-count">—</div></div>
+    <div class="sum-card orange"><div class="sum-label">Expiring Soon</div><div class="sum-val" id="s-expiring">—</div></div>
+  </div>
+  <div class="filter-bar">
+    <select id="am-filter" class="filter-select"><option value="">All Managers</option></select>
+    <div class="view-btns">
+      <button class="view-btn active" data-view="all">All</button>
+      <button class="view-btn" data-view="flagged">Flagged Only</button>
+      <button class="view-btn" data-view="newhires">New Hires</button>
+    </div>
+    <button class="sec-btn" id="handoff-btn">📝 Shift Handoff</button>
+    <button class="sec-btn" id="barriers-btn">🔍 Barrier Patterns</button>
+  </div>
+  <div id="floor-loading" class="loading-msg">Loading associate data… (first load opens a browser window for FCLM login)</div>
+  <div id="am-cards"></div>
+</div>
+
+<!-- RANKINGS TAB -->
+<div id="tab-rankings" class="tab-pane hidden">
+  <div id="rankings-content"></div>
+</div>
+
+<!-- ETI / TPH TAB -->
+<div id="tab-eti" class="tab-pane hidden">
+  <div id="eti-content"><div class="loading-msg">Click "Fetch ETI/TPH" to load data.</div></div>
+  <button class="pri-btn" id="fetch-eti-btn" style="margin:16px">Fetch ETI / TPH</button>
+</div>
+
+<!-- AA DETAIL DRAWER -->
+<div id="drawer-overlay" class="drawer-overlay hidden"></div>
+<aside id="drawer" class="drawer hidden">
+  <div class="drawer-header">
+    <div>
+      <div id="d-name" class="d-name"></div>
+      <div id="d-sub" class="d-sub"></div>
+    </div>
+    <button id="drawer-close" class="close-btn">✕</button>
+  </div>
+  <div id="drawer-body" class="drawer-body"></div>
+</aside>
+
+<!-- MODAL -->
+<div id="modal-overlay" class="modal-overlay hidden">
+  <div id="modal-box" class="modal-box">
+    <div class="modal-header">
+      <span id="modal-title"></span>
+      <button id="modal-close" class="close-btn">✕</button>
+    </div>
+    <div id="modal-body" class="modal-body"></div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
