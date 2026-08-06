@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CLE3 PT Dashboard</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-left">
+    <span class="logo">CLE3 PT</span>
+    <div class="shift-toggle">
+      <button class="shift-btn" data-shift="night">Night</button>
+      <button class="shift-btn" data-shift="day">Day</button>
+    </div>
+    <select id="floor-select" class="floor-select">
+      <option value="all">All Floors</option>
+      <option value="1">Floor 1</option>
+      <option value="2">Floor 2</option>
+      <option value="3">Floor 3</option>
+      <option value="4">Floor 4</option>
+    </select>
+  </div>
+  <div class="topbar-center">
+    <span id="status-msg" class="status-msg">Loading…</span>
+  </div>
+  <div class="topbar-right">
+    <div id="notif-wrap" class="notif-wrap">
+      <button id="notif-btn" class="icon-btn" title="Alerts">🔔</button>
+      <span id="notif-badge" class="notif-badge hidden">0</span>
+      <div id="notif-panel" class="notif-panel hidden">
+        <div class="notif-hdr">Alerts <button id="clear-notifs">Clear</button></div>
+        <div id="notif-list"></div>
+      </div>
+    </div>
+    <button id="refresh-btn" class="icon-btn" title="Refresh now">⟳</button>
+  </div>
+</header>
+
+<div class="summary-bar" id="summary-bar">
+  <div class="sum-card"><div class="sum-lbl">Floor Avg PT</div><div class="sum-val" id="s-avg">–</div></div>
+  <div class="sum-card red"><div class="sum-lbl">Below 88%</div><div class="sum-val" id="s-below">–</div></div>
+  <div class="sum-card amber"><div class="sum-lbl">Watch (84-88%)</div><div class="sum-val" id="s-watch">–</div></div>
+  <div class="sum-card green"><div class="sum-lbl">On Target</div><div class="sum-val" id="s-good">–</div></div>
+  <div class="sum-card"><div class="sum-lbl">Total AAs</div><div class="sum-val" id="s-count">–</div></div>
+</div>
+
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="floor">Floor View</button>
+  <button class="tab-btn" data-tab="flagged">Flagged</button>
+  <button class="tab-btn" data-tab="actions">Actions Taken</button>
+  <button class="tab-btn" data-tab="patterns">Patterns</button>
+</nav>
+
+<!-- FLOOR VIEW -->
+<div id="tab-floor" class="tab-pane">
+  <div id="floor-loading" class="loading-msg">Loading FCLM data… (browser window may open for login)</div>
+  <div id="floor-table-wrap" class="hidden">
+    <table class="aa-table" id="aa-table">
+      <thead>
+        <tr>
+          <th>Station</th>
+          <th>Name</th>
+          <th>Login</th>
+          <th>Manager</th>
+          <th>PT%</th>
+          <th>Productive Time Bar</th>
+          <th>Idle</th>
+          <th>Projection</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="aa-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- FLAGGED -->
+<div id="tab-flagged" class="tab-pane hidden">
+  <div class="tab-note">Associates below 88% PT. Removed once they recover. Once action is taken they move to Actions Taken tab.</div>
+  <table class="aa-table">
+    <thead>
+      <tr>
+        <th>Station</th><th>Name</th><th>Login</th><th>Manager</th>
+        <th>PT%</th><th>Projection</th><th>Consec. Low</th><th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="flagged-tbody"></tbody>
+  </table>
+</div>
+
+<!-- ACTIONS TAKEN -->
+<div id="tab-actions" class="tab-pane hidden">
+  <div class="tab-note">Associates with a logged action this shift. Still monitored — PT shown live.</div>
+  <table class="aa-table">
+    <thead>
+      <tr>
+        <th>Name</th><th>Login</th><th>PT%</th><th>Projection</th>
+        <th>Action Taken</th><th>By</th><th>Time</th><th>Recovered?</th>
+      </tr>
+    </thead>
+    <tbody id="actions-tbody"></tbody>
+  </table>
+</div>
+
+<!-- PATTERNS -->
+<div id="tab-patterns" class="tab-pane hidden">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:4px">
+    <div>
+      <div class="section-title">Consecutive Low Shifts</div>
+      <div id="patterns-list"></div>
+    </div>
+    <div>
+      <div class="section-title">Barrier Log</div>
+      <button class="sec-btn" id="log-barrier-floor-btn" style="margin-bottom:10px">+ Log Barrier</button>
+      <div id="barrier-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- AA DRAWER -->
+<div id="drawer-overlay" class="drawer-overlay hidden"></div>
+<aside id="drawer" class="drawer hidden">
+  <div class="drawer-hdr">
+    <div>
+      <div id="d-name" class="d-name"></div>
+      <div id="d-sub"  class="d-sub"></div>
+    </div>
+    <button id="drawer-close" class="close-btn">✕</button>
+  </div>
+  <div id="drawer-body" class="drawer-body"></div>
+</aside>
+
+<!-- MODAL -->
+<div id="modal-overlay" class="modal-overlay hidden">
+  <div id="modal-box" class="modal-box">
+    <div class="modal-hdr">
+      <span id="modal-title"></span>
+      <button id="modal-close" class="close-btn">✕</button>
+    </div>
+    <div id="modal-body" class="modal-body"></div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
