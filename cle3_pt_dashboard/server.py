@@ -10,6 +10,7 @@ from engine import enrich, save_snapshot, floor_summary, PT_TARGET
 from fclm   import build_timecard_url
 
 app = Flask(__name__)
+app.config['JSON_AS_ASCII'] = False
 
 # -- Cache ---------------------------------------------------------------------
 _cache = {}
@@ -109,7 +110,9 @@ def get_data():
     data, ts = cache_get(f'data_{shift}')
     if data is None:
         threading.Thread(target=do_scrape, daemon=True).start()
-        return jsonify({'ok': False, 'associates': [], 'msg': 'Fetching data - check back in ~30s.'})
+        err = _scrape_status.get('error', '')
+        msg = f'Error: {err}' if err else _scrape_status.get('msg', 'Fetching data - check back in ~30s.')
+        return jsonify({'ok': False, 'associates': [], 'msg': msg, 'error': err})
 
     # Filter by floor
     result = data
