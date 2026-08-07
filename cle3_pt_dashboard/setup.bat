@@ -60,9 +60,16 @@ if errorlevel 1 (
 )
 
 echo.
+echo Installing auto-start on login...
+set STARTUP=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup
+copy /Y "%~dp0start_server.vbs" "%STARTUP%\CLE3_PT_Dashboard.vbs" >nul
+echo Auto-start installed.
+
+echo.
 echo  ======================================
 echo  Setup complete!
-echo  Double-click run.bat to start the dashboard.
+echo  The dashboard starts automatically when you log in.
+echo  Bookmark http://localhost:5050 in your browser.
 echo  ======================================
 echo.
 pause
