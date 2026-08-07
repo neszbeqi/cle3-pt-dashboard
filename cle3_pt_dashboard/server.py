@@ -54,15 +54,32 @@ def _current_date():
     return now.strftime('%Y-%m-%d')
 
 def do_scrape():
+    """Run FCLM fetch in a separate subprocess so Playwright crashes cannot kill Flask."""
     global _scrape_status
     if not _scrape_lock.acquire(blocking=False):
         return
     try:
-        from fclm import fetch
+        import subprocess, json as _json, sys as _sys
         shift    = _current_shift
         date_str = _current_date()
         _scrape_status['msg'] = f'Scraping {shift} shift...'
-        result = fetch(date_str, shift, status_cb=lambda m: _scrape_status.update({'msg': m}))
+
+        # Run fclm.fetch in a child process - isolates Playwright from Flask
+        script = (
+            f"import sys, json; sys.path.insert(0, r'{os.path.dirname(__file__)}');"
+            f"from fclm import fetch; r = fetch('{date_str}', '{shift}'); print(json.dumps(r))"
+        )
+        proc = subprocess.run(
+            [_sys.executable, '-c', script],
+            capture_output=True, text=True, timeout=180
+        )
+        if proc.returncode != 0 or not proc.stdout.strip():
+            err = (proc.stderr or 'Subprocess exited with no output').strip()[-200:]
+            _scrape_status['msg']   = f'Error: {err}'
+            _scrape_status['error'] = err
+            return
+
+        result = _json.loads(proc.stdout.strip().splitlines()[-1])
         if result['ok']:
             associates = enrich(result['associates'], shift, date_str)
             cache_set(f'data_{shift}', associates)
@@ -78,6 +95,12 @@ def do_scrape():
         else:
             _scrape_status['msg']   = f'Error: {result["error"]}'
             _scrape_status['error'] = result['error']
+    except subprocess.TimeoutExpired:
+        _scrape_status['msg']   = 'Error: FCLM scrape timed out (180s)'
+        _scrape_status['error'] = 'Timed out'
+    except Exception as e:
+        _scrape_status['msg']   = f'Error: {e}'
+        _scrape_status['error'] = str(e)
     finally:
         _scrape_lock.release()
 
@@ -257,6 +280,18 @@ def sse_stream():
                 except: pass
     return Response(stream_with_context(stream()), mimetype='text/event-stream',
                     headers={'Cache-Control':'no-cache','X-Accel-Buffering':'no'})
+
+import traceback, sys
+
+def _excepthook(exc_type, exc_value, exc_tb):
+    log_path = os.path.join(os.path.dirname(__file__), 'crash.log')
+    with open(log_path, 'a', encoding='utf-8') as f:
+        import datetime
+        f.write(f'\n--- CRASH {datetime.datetime.now()} ---\n')
+        traceback.print_exception(exc_type, exc_value, exc_tb, file=f)
+    traceback.print_exception(exc_type, exc_value, exc_tb)
+
+sys.excepthook = _excepthook
 
 if __name__ == '__main__':
     init_db()
