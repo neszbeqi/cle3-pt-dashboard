@@ -8,6 +8,7 @@ const S = {
   activeTab: 'floor',
   selectedBadge: null,
   refreshTimer: null,
+  fetchTimer: null,
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -41,17 +42,28 @@ async function loadData() {
   const r = await api(`/api/data?shift=${S.shift}&floor=${S.floor}`);
   if (!r) { setStatus('Error loading data'); return; }
   if (!r.ok) {
-    setStatus(r.msg || 'Fetching — retry in 30s');
+    const msg = r.msg || 'Fetching data - check back shortly.';
+    setStatus(msg);
+    const loadEl = document.getElementById('floor-loading');
+    if (loadEl) loadEl.textContent = r.error
+      ? 'FCLM error: ' + r.error + '  (retrying...)'
+      : 'Loading FCLM data... (a browser window may open for login)';
     S.associates = [];
     show('floor-loading');
     hide('floor-table-wrap');
+    // Retry every 10s until data arrives
+    if (!S.fetchTimer) {
+      S.fetchTimer = setInterval(() => { if (S.associates.length === 0) loadData(); }, 10000);
+    }
   } else {
+    // Data loaded - clear fast-retry timer
+    if (S.fetchTimer) { clearInterval(S.fetchTimer); S.fetchTimer = null; }
     S.associates = r.associates || [];
     S.summary    = r.summary || {};
     S.floors     = r.floors || [];
     hide('floor-loading');
     show('floor-table-wrap');
-    setStatus(`Updated ${new Date(r.updated).toLocaleTimeString()} · ${S.associates.length} AAs · ${r.shift} shift`);
+    setStatus('Updated ' + new Date(r.updated).toLocaleTimeString() + ' - ' + S.associates.length + ' AAs - ' + r.shift + ' shift');
   }
   // Load actions for this shift
   const acts = await api(`/api/actions?shift=${S.shift}`);
