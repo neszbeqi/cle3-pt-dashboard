@@ -60,10 +60,14 @@ if errorlevel 1 (
 )
 
 echo.
-echo Installing auto-start on login...
-set STARTUP=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup
-copy /Y "%~dp0start_server.vbs" "%STARTUP%\CLE3_PT_Dashboard.vbs" >nul
-echo Auto-start installed.
+echo Installing auto-start on login (Task Scheduler)...
+schtasks /delete /tn "CLE3_PT_Server" /f >nul 2>&1
+schtasks /create /tn "CLE3_PT_Server" /tr ""%~dp0venv\Scripts\python.exe" server.py" /sc onlogon /f /it /rl LIMITED /st 00:00 /sd 01/01/2000 >nul 2>&1
+if errorlevel 1 (
+    echo WARNING: Could not register scheduled task. Use run.bat to start manually.
+) else (
+    echo Auto-start installed via Task Scheduler.
+)
 
 echo.
 echo  ======================================
