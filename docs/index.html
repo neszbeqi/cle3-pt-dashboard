@@ -514,6 +514,11 @@ function startCountdown() {
 }
 
 // ── Live server redirect ────────────────────────────────────────────────────────
+// NOTE: GitHub Pages is HTTPS; live server is HTTP.
+// Browser blocks fetch() from HTTPS→HTTP (mixed content), so we cannot ping.
+// Instead: if the server pushed a heartbeat within the last 20 min, show a
+// "Connect to live dashboard" banner and let the user click — or auto-redirect
+// on the same-network case where the browser allows navigation to HTTP.
 async function checkLiveServer() {
   if (_redirectChecked) return;
   _redirectChecked = true;
@@ -521,18 +526,20 @@ async function checkLiveServer() {
     const d = await ghFetch(GITHUB_RAW + 'data/current_url.json');
     if (!d || !d.url) return;
     const liveUrl = d.url;
-    // Updated within last 20 min — server may be running
-    const ageMin = (Date.now() - new Date(d.updated).getTime()) / 60000;
-    if (ageMin > 20) return;
-    // Try to ping
-    const ctrl  = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 2500);
-    try {
-      const ping = await fetch(liveUrl + '/api/ping', {signal: ctrl.signal, mode: 'no-cors'});
-      clearTimeout(timer);
-      // no-cors means we can't read the response, but no network error = server up
-      window.location.replace(liveUrl);
-    } catch { clearTimeout(timer); }
+    const ageMin  = (Date.now() - new Date(d.updated).getTime()) / 60000;
+    if (ageMin > 20) return; // heartbeat stale — server probably offline
+
+    // Show live-server banner instead of auto-redirect (mixed content issue)
+    const bar = document.getElementById('offline-bar');
+    if (bar) {
+      bar.innerHTML = '🟢 Live server detected — <a href="' + liveUrl +
+        '" style="font-weight:700;color:#155724">Click here to open the live dashboard ↗</a>' +
+        ' &nbsp;(snapshot below is ' + Math.round(ageMin) + 'm old)';
+      bar.style.background = '#d4edda';
+      bar.style.borderLeftColor = '#28a745';
+      bar.style.color = '#155724';
+      bar.style.display = 'block';
+    }
   } catch {}
 }
 
