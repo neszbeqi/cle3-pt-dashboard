@@ -3,6 +3,7 @@
 const S = {
   associates: [],   // all associates, unfiltered
   actions:    [],
+  departed:   [],   // flagged AAs who clocked out mid-shift
   shift:      'night',
   floor:      'all',
   activeTab:  'floor',
@@ -100,6 +101,7 @@ async function loadData() {
     api(`/api/data?shift=${S.shift}&floor=all`),
     api(`/api/actions?shift=${S.shift}`)
   ]);
+  // departed is embedded in the data response
 
   S.loading = false;
   if (btn) { btn.disabled = false; btn.textContent = '⟳ PT Data'; }
@@ -122,6 +124,7 @@ async function loadData() {
 
   S.associates = dataRes.associates || [];
   S.actions    = Array.isArray(actsRes) ? actsRes : [];
+  S.departed   = dataRes.departed  || [];
   updateHeader(dataRes.shift, dataRes.date, dataRes.updated);
   updateAlertStrip(S.associates);
   updateBadges();
@@ -141,6 +144,11 @@ function updateBadges() {
   if (bf) { bf.textContent = flagged; bf.classList.toggle('hidden', !flagged); }
   const ba = document.getElementById('badge-actions');
   if (ba) { ba.textContent = S.actions.length; ba.classList.toggle('hidden', !S.actions.length); }
+  const bd = document.getElementById('badge-departed');
+  if (bd) { bd.textContent = S.departed.length; bd.classList.toggle('hidden', !S.departed.length); }
+  const bb = document.getElementById('badge-breaks');
+  const bkViolations = S.associates.filter(a => a.break_data && a.break_data.any_violation).length;
+  if (bb) { bb.textContent = bkViolations; bb.classList.toggle('hidden', !bkViolations); }
 }
 
 // ── Floor view ────────────────────────────────────────────────────────────────
@@ -421,7 +429,52 @@ function renderActions() {
   </table>`;
 }
 
-// ── Tab switching ─────────────────────────────────────────────────────────────
+// ── Departed tab ──────────────────────────────────────────────────────────────
+function renderDeparted() {
+  const el = document.getElementById('departed-content');
+  if (!el) return;
+  const list = [...S.departed].sort((a,b) => (b.gone_min||0) - (a.gone_min||0));
+  if (!list.length) {
+    el.innerHTML = '<div class="empty-state">No departed associates this shift — everyone is still clocked in.</div>';
+    return;
+  }
+  el.innerHTML = `<div style="margin-bottom:12px;font-size:12px;color:var(--txt-2)">
+    AAs who were below the PT threshold and are no longer clocked in at a station.
+    After 60 minutes away they are likely not returning this shift.
+  </div>
+  <div class="dep-list">${list.map(depCard).join('')}</div>`;
+}
+
+function depCard(a) {
+  const goneMin  = a.gone_min || 0;
+  const likely   = a.likely_gone;
+  const st       = ptSt(a.pt_pct);
+  const goneStr  = goneMin < 60
+    ? goneMin + 'm ago'
+    : Math.floor(goneMin/60) + 'h ' + (goneMin%60) + 'm ago';
+  const statusCls  = likely ? 'dep-likely' : (goneMin >= 30 ? 'dep-watch' : 'dep-may');
+  const statusText = likely ? '⚠ Likely not returning' : (goneMin >= 30 ? 'Watch — 30+ min out' : 'May still return');
+  const cardCls    = likely ? 'dep-likely' : (goneMin >= 30 ? 'dep-watch' : '');
+  const fcUrl      = 'https://fclm-portal.amazon.com/employee/timeDetails?warehouseId=CLE3&employeeId=' + encodeURIComponent(a.badge||'');
+
+  return '<div class="dep-card ' + cardCls + '">' +
+    '<div class="dep-info">' +
+      '<span class="dep-name">' + esc(a.name) + '</span>' +
+      '<span class="dep-loc">Station ' + esc(a.station||'–') + ' · Floor ' + esc(a.floor||'?') + ' · ' + esc(a.manager||'–') + '</span>' +
+      '<span class="dep-pt pt-' + st + '">Last PT: ' + fmt(a.pt_pct) +
+        ((a.consecutive_low||0)>=2 ? ' · ' + a.consecutive_low + ' shifts below' : '') + '</span>' +
+    '</div>' +
+    '<div class="dep-time">' +
+      '<span class="dep-gone-lbl">Left ' + goneStr + '</span>' +
+      '<span class="dep-status ' + statusCls + '">' + statusText + '</span>' +
+    '</div>' +
+    '<div class="dep-btns">' +
+      '<a href="' + fcUrl + '" target="_blank">Timecard ↗</a>' +
+    '</div>' +
+  '</div>';
+}
+
+
 function switchTab(tab) {
   S.activeTab = tab;
   document.querySelectorAll('.tab-btn').forEach(b =>
@@ -432,10 +485,104 @@ function switchTab(tab) {
 }
 
 function renderActiveTab() {
-  if      (S.activeTab === 'floor')   renderFloor();
-  else if (S.activeTab === 'flagged') renderFlagged();
-  else if (S.activeTab === 'report')  renderReport();
-  else if (S.activeTab === 'actions') renderActions();
+  if      (S.activeTab === 'floor')    renderFloor();
+  else if (S.activeTab === 'flagged')  renderFlagged();
+  else if (S.activeTab === 'report')   renderReport();
+  else if (S.activeTab === 'actions')  renderActions();
+  else if (S.activeTab === 'departed') renderDeparted();
+  else if (S.activeTab === 'breaks')   renderBreaks();
+}
+
+
+// ── Breaks tab ────────────────────────────────────────────────────────────────
+function renderBreaks() {
+  const el = document.getElementById('breaks-content');
+  if (!el) return;
+
+  const aas = S.associates.filter(a => a.break_data);
+  if (!aas.length) {
+    el.innerHTML = '<div class="empty-state">Break compliance data not yet loaded — it arrives with the next timecard refresh (~3 min).</div>';
+    return;
+  }
+
+  const violations = aas.filter(a => a.break_data.any_violation);
+  const clean      = aas.filter(a => !a.break_data.any_violation);
+
+  let html = `<div class="brk-header">
+    <span class="brk-summary">${violations.length} violation${violations.length !== 1 ? 's' : ''} of ${aas.length} tracked</span>
+    <span class="brk-legend">
+      <span class="brk-pill brk-flag">⚠ Flagged (&gt;7 min gap)</span>
+      <span class="brk-pill brk-ok">✓ On time</span>
+    </span>
+  </div>`;
+
+  if (violations.length) {
+    html += '<div class="brk-section-lbl">Break violations</div>';
+    html += '<div class="brk-list">' + violations.map(brkCard).join('') + '</div>';
+  }
+  if (clean.length) {
+    html += `<details class="brk-clean-wrap"><summary class="brk-section-lbl brk-clean-lbl">
+      ✓ On time (${clean.length})</summary>
+      <div class="brk-list">${clean.map(brkCard).join('')}</div>
+    </details>`;
+  }
+
+  el.innerHTML = html;
+}
+
+function brkCard(a) {
+  const bd       = a.break_data || {};
+  const st       = ptSt(a.pt_pct);
+  const fcUrl    = 'https://fclm-portal.amazon.com/employee/timeDetails?warehouseId=CLE3&employeeId=' + encodeURIComponent(a.badge||'');
+  const hasViol  = bd.any_violation;
+  const cardCls  = hasViol ? 'brk-card brk-card-viol' : 'brk-card';
+
+  // Shift start row
+  let rows = '';
+  if (bd.shift_start_gap != null) {
+    const flag = bd.shift_start_flagged;
+    rows += `<tr>
+      <td class="brk-event">Shift start</td>
+      <td class="brk-time">–</td>
+      <td class="brk-time">–</td>
+      <td class="brk-dur">–</td>
+      <td class="brk-gap ${flag ? 'brk-gap-flag' : 'brk-gap-ok'}">–</td>
+      <td class="brk-gap ${flag ? 'brk-gap-flag' : 'brk-gap-ok'}">${bd.shift_start_gap}m ${flag ? '⚠' : '✓'}</td>
+    </tr>`;
+  }
+
+  // Break rows
+  for (const b of (bd.breaks || [])) {
+    const preCls  = b.pre_flagged  ? 'brk-gap-flag' : 'brk-gap-ok';
+    const postCls = b.post_flagged ? 'brk-gap-flag' : 'brk-gap-ok';
+    const preVal  = b.pre_gap_min  != null ? b.pre_gap_min + 'm ' + (b.pre_flagged  ? '⚠' : '✓') : '–';
+    const postVal = b.post_gap_min != null ? b.post_gap_min + 'm ' + (b.post_flagged ? '⚠' : '✓') : '–';
+    rows += `<tr>
+      <td class="brk-event">Break ${b.break_num}</td>
+      <td class="brk-time">${esc(b.break_start)}</td>
+      <td class="brk-time">${esc(b.break_end)}</td>
+      <td class="brk-dur">${b.break_dur_min}m</td>
+      <td class="brk-gap ${preCls}">${preVal}</td>
+      <td class="brk-gap ${postCls}">${postVal}</td>
+    </tr>`;
+  }
+
+  return `<div class="${cardCls}">
+    <div class="brk-card-hdr">
+      <div class="brk-name-wrap">
+        <span class="brk-name">${esc(a.name)}</span>
+        <span class="brk-meta">Station ${esc(a.station||'–')} · Floor ${esc(a.floor||'?')} · PT: <span class="pt-num pt-${st}">${fmt(a.pt_pct)}</span></span>
+      </div>
+      <a href="${fcUrl}" target="_blank" class="brk-tc-link">Timecard ↗</a>
+    </div>
+    <table class="brk-table">
+      <thead><tr>
+        <th>Event</th><th>Left</th><th>Returned</th><th>Duration</th>
+        <th>Pre-gap (last stow → left)</th><th>Post-gap (returned → first stow)</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
 }
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
