@@ -329,7 +329,7 @@ td { padding: 9px 14px; vertical-align: middle; }
     <span id="snapshot-badge"></span>
     <span id="last-updated" class="last-updated">—</span>
     <span id="countdown" class="countdown"></span>
-    <button id="refresh-btn" onclick="manualRefresh()" title="Re-fetch latest data from GitHub">⟳ Refresh</button>
+    <button id="refresh-btn" onclick="manualRefresh()" title="Refresh FCLM PT data">⟳ PT Data</button>
   </div>
 </header>
 
@@ -1045,6 +1045,18 @@ function setLoginNeeded(needed) {
 function manualRefresh() {
   clearInterval(S.countdownTm);
   loadData();
+}
+
+function reloadStations() {
+  const btn = document.getElementById('refresh-scc-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⇄ Loading…'; }
+  // Portal can't trigger a live SCC scan directly — refresh snapshot from GitHub
+  loadData().then ? loadData().then(() => {
+    if (btn) { btn.disabled = false; btn.textContent = '⇄ Stations'; }
+    toast('Stations refreshed from latest snapshot');
+  }) : (loadData(), setTimeout(() => {
+    if (btn) { btn.disabled = false; btn.textContent = '⇄ Stations'; }
+  }, 3000));
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────────
