@@ -13,7 +13,7 @@ import sys, json, os
 sys.path.insert(0, sys.argv[1] if len(sys.argv) > 1 else '.')
 
 from fclm   import fetch_timecards_batch
-from engine import parse_timecard_pt
+from engine import parse_timecard_pt, parse_break_compliance
 
 data     = json.load(sys.stdin)
 badges   = data.get('badges', [])
@@ -34,8 +34,12 @@ for badge, tc in tc_raw.items():
     if not rows:
         continue
     parsed = parse_timecard_pt(rows, shift=shift)
-    if parsed and parsed.get('pt_pct') is not None:
-        out[badge] = parsed
+    breaks = parse_break_compliance(rows, shift=shift)
+    entry  = parsed if (parsed and parsed.get('pt_pct') is not None) else {}
+    if breaks is not None:
+        entry['break_data'] = breaks
+    if entry:
+        out[badge] = entry
 
 # Write to file (not stdout) so pipe-hang can't block the caller
 if out_file:
