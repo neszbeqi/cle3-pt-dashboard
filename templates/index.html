@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CLE3 PT Dashboard</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header>
+  <div class="hdr-left">
+    <span class="logo">CLE3 PT</span>
+    <span id="shift-badge" class="shift-badge">Night Shift</span>
+    <span id="date-badge" class="date-badge"></span>
+  </div>
+  <div class="hdr-center">
+    <span id="alert-strip"></span>
+  </div>
+  <div class="hdr-right">
+    <span id="last-updated" class="last-updated">—</span>
+    <span id="countdown" class="countdown">Refresh in —</span>
+    <button id="refresh-scc-btn" onclick="reloadStations()" title="Re-scrape SCC when someone is moved to a new station">⇄ Stations</button>
+    <button id="refresh-btn" onclick="manualRefresh()" title="Refresh FCLM PT data now">⟳ PT Data</button>
+  </div>
+</header>
+
+<div id="login-banner" class="login-banner hidden">
+  ⚠ FCLM session expired — <a href="https://fclm-portal.amazon.com" target="_blank">open FCLM in your browser</a>, log in, then click <strong>PT Data</strong> to refresh.
+</div>
+<nav class="tab-nav">
+  <button class="tab-btn active" data-tab="floor">Floor View</button>
+  <button class="tab-btn" data-tab="flagged">
+    ⚠ Flagged <span id="badge-flagged" class="nav-badge hidden">0</span>
+  </button>
+  <button class="tab-btn" data-tab="report">Shift Report</button>
+  <button class="tab-btn" data-tab="actions">
+    Actions <span id="badge-actions" class="nav-badge hidden">0</span>
+  </button>
+</nav>
+
+<div id="tab-floor" class="tab-pane">
+  <div class="pane-toolbar">
+    <div class="floor-filter">
+      <span class="filter-label">Floor:</span>
+      <button class="fl-btn active" data-floor="all">All</button>
+      <button class="fl-btn" data-floor="1">1</button>
+      <button class="fl-btn" data-floor="2">2</button>
+      <button class="fl-btn" data-floor="3">3</button>
+      <button class="fl-btn" data-floor="4">4</button>
+    </div>
+    <div class="shift-toggle">
+      <button class="sh-btn active" data-shift="night">Night</button>
+      <button class="sh-btn" data-shift="day">Day</button>
+    </div>
+  </div>
+  <div id="floor-content">
+    <div class="spinner-wrap"><div class="spinner"></div><div id="floor-msg">Loading…</div></div>
+  </div>
+</div>
+
+<div id="tab-flagged" class="tab-pane hidden">
+  <div id="flagged-content"><div class="empty-state">No flagged associates</div></div>
+</div>
+
+<div id="tab-report" class="tab-pane hidden">
+  <div id="report-content"><div class="spinner-wrap"><div class="spinner"></div></div></div>
+</div>
+
+<div id="tab-actions" class="tab-pane hidden">
+  <div id="actions-content"><div class="empty-state">No actions logged this shift</div></div>
+</div>
+
+<div id="modal" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-hdr">
+      <span id="modal-title">Log Action</span>
+      <button onclick="closeModal()" class="close-x">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="modal-tta-info" class="modal-tta-info"></div>
+      <form id="action-form" onsubmit="submitAction(event)">
+        <input type="hidden" id="f-badge">
+        <input type="hidden" id="f-name">
+        <div class="field">
+          <label>Action Type</label>
+          <select id="f-type" required>
+            <option value="">— Select —</option>
+            <option value="feedback">Verbal Feedback</option>
+            <option value="swace">SWACE Audit</option>
+            <option value="barrier">Barrier Identified</option>
+            <option value="relog">Relog / System Reset</option>
+            <option value="zone_move">Zone Move</option>
+            <option value="observation">Observation Walk</option>
+            <option value="coaching">Coaching Conversation</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Notes</label>
+          <textarea id="f-note" rows="3" placeholder="What did you observe? What action was taken?"></textarea>
+        </div>
+        <div class="field">
+          <label>Your Name (AM)</label>
+          <input type="text" id="f-am" placeholder="First Last" required>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-ghost" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn-primary">Log Action</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
