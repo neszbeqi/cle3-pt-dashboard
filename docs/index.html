@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CLE3 PT Dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+         background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+  .container { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; }
+  .header { display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; border-bottom: 1px solid #334155; padding-bottom: 1rem; }
+  .logo { font-size: 1.5rem; font-weight: 700; color: #f97316; }
+  .badge { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 9999px; font-weight: 600; }
+  .badge-night { background: #1e3a5f; color: #93c5fd; }
+  .badge-day   { background: #3b1f05; color: #fbbf24; }
+  .badge-stale { background: #3b0f0f; color: #fca5a5; }
+  .status-card { background: #1e293b; border: 1px solid #334155; border-radius: 0.75rem;
+                 padding: 1.5rem; margin-bottom: 1.5rem; }
+  .status-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
+                  color: #64748b; margin-bottom: 0.5rem; }
+  .status-main { font-size: 1.1rem; color: #e2e8f0; }
+  .connect-btn { display: inline-block; margin-top: 1rem; padding: 0.6rem 1.4rem;
+                 background: #f97316; color: white; border: none; border-radius: 0.5rem;
+                 font-size: 0.9rem; font-weight: 600; cursor: pointer; text-decoration: none; }
+  .connect-btn:hover { background: #ea580c; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+  .aa-card { background: #1e293b; border: 1px solid #334155; border-radius: 0.5rem; padding: 1rem; }
+  .aa-card.flagged { border-color: #f97316; }
+  .aa-name { font-weight: 600; font-size: 0.95rem; margin-bottom: 0.25rem; }
+  .aa-meta { font-size: 0.75rem; color: #94a3b8; }
+  .pt-bar { height: 6px; background: #334155; border-radius: 3px; margin: 0.5rem 0; }
+  .pt-fill { height: 6px; border-radius: 3px; }
+  .pt-fill.ok      { background: #22c55e; }
+  .pt-fill.warn    { background: #f59e0b; }
+  .pt-fill.flagged { background: #ef4444; }
+  .pt-num { font-size: 0.8rem; font-weight: 700; }
+  .pt-num.ok      { color: #22c55e; }
+  .pt-num.warn    { color: #f59e0b; }
+  .pt-num.flagged { color: #ef4444; }
+  .spinner { border: 3px solid #334155; border-top-color: #f97316; border-radius: 50%;
+             width: 2rem; height: 2rem; animation: spin 0.8s linear infinite; margin: 3rem auto; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .floor-header { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em;
+                  color: #64748b; margin: 1.5rem 0 0.75rem; }
+  .summary-row { display: flex; gap: 1.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .summary-stat { text-align: center; }
+  .summary-stat .num { font-size: 1.75rem; font-weight: 700; }
+  .summary-stat .lbl { font-size: 0.7rem; color: #64748b; text-transform: uppercase; }
+  .offline-note { background: #1c1010; border: 1px solid #7f1d1d; border-radius: 0.5rem;
+                  padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #fca5a5; }
+  #floor-filter { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .fl-btn { padding: 0.3rem 0.8rem; background: #1e293b; border: 1px solid #334155;
+            color: #94a3b8; border-radius: 0.375rem; cursor: pointer; font-size: 0.8rem; }
+  .fl-btn.active { background: #f97316; border-color: #f97316; color: white; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <span class="logo">CLE3 PT</span>
+    <span id="shift-badge" class="badge badge-night">Night Shift</span>
+    <span id="date-badge" style="font-size:0.8rem;color:#64748b"></span>
+    <span id="stale-badge" class="badge badge-stale hidden">DATA STALE</span>
+    <span style="flex:1"></span>
+    <span id="last-updated" style="font-size:0.75rem;color:#64748b"></span>
+  </div>
+
+  <div id="connecting-card" class="status-card">
+    <div class="status-title">Looking for active server…</div>
+    <div class="spinner"></div>
+  </div>
+
+  <div id="live-banner" class="status-card hidden" style="border-color:#22c55e">
+    <div class="status-title">Live server found</div>
+    <div class="status-main" id="live-url-text"></div>
+    <a id="live-url-link" href="#" class="connect-btn">Open Full Dashboard →</a>
+  </div>
+
+  <div id="offline-banner" class="offline-note hidden">
+    ⚠ No active server found. Showing last known data — actions cannot be logged until a server is online.
+  </div>
+
+  <div id="main-content" class="hidden">
+    <div class="summary-row">
+      <div class="summary-stat"><div class="num" id="s-total">—</div><div class="lbl">Associates</div></div>
+      <div class="summary-stat"><div class="num" id="s-flagged" style="color:#ef4444">—</div><div class="lbl">Flagged</div></div>
+      <div class="summary-stat"><div class="num" id="s-avg">—</div><div class="lbl">Avg PT%</div></div>
+    </div>
+    <div id="floor-filter">
+      <button class="fl-btn active" data-floor="all">All Floors</button>
+      <button class="fl-btn" data-floor="1">Floor 1</button>
+      <button class="fl-btn" data-floor="2">Floor 2</button>
+      <button class="fl-btn" data-floor="3">Floor 3</button>
+      <button class="fl-btn" data-floor="4">Floor 4</button>
+    </div>
+    <div id="aa-grid"></div>
+  </div>
+</div>
+
+<script>
+const REPO = 'neszbeqi/cle3-pt-dashboard';
+const RAW  = `https://raw.githubusercontent.com/${REPO}/main`;
+
+async function ghFetch(path) {
+  try {
+    const r = await fetch(`${RAW}/${path}?_=${Date.now()}`);
+    if (r.ok) return r.json();
+  } catch {}
+  return null;
+}
+
+let currentFloor = 'all';
+let allAssociates = [];
+
+async function init() {
+  // 1. Try to find active server
+  const urlData = await ghFetch('data/current_url.json');
+  if (urlData && urlData.url && urlData.updated) {
+    const ageMin = (Date.now() - new Date(urlData.updated).getTime()) / 60000;
+    if (ageMin < 10) {
+      try {
+        const ctrl = new AbortController();
+        setTimeout(() => ctrl.abort(), 4000);
+        const ping = await fetch(urlData.url + '/api/status', { signal: ctrl.signal });
+        if (ping.ok) {
+          document.getElementById('connecting-card').classList.add('hidden');
+          document.getElementById('live-banner').classList.remove('hidden');
+          document.getElementById('live-url-text').textContent = urlData.url;
+          document.getElementById('live-url-link').href = urlData.url;
+          return;
+        }
+      } catch {}
+    }
+  }
+
+  // 2. No live server — show last known data
+  document.getElementById('connecting-card').classList.add('hidden');
+  document.getElementById('offline-banner').classList.remove('hidden');
+  const live = await ghFetch('data/live.json');
+  if (live && live.associates && live.associates.length) {
+    renderData(live);
+  } else {
+    document.getElementById('main-content').innerHTML =
+      '<div style="color:#64748b;text-align:center;padding:3rem">No data available yet — a server needs to run at least once.</div>';
+    document.getElementById('main-content').classList.remove('hidden');
+  }
+}
+
+function renderData(live) {
+  allAssociates = live.associates || [];
+
+  // Header info
+  const shiftBadge = document.getElementById('shift-badge');
+  shiftBadge.textContent = (live.shift === 'night' ? 'Night' : 'Day') + ' Shift';
+  shiftBadge.className = 'badge ' + (live.shift === 'night' ? 'badge-night' : 'badge-day');
+  document.getElementById('date-badge').textContent = live.date || '';
+
+  if (live.updated) {
+    const mins = Math.round((Date.now() - new Date(live.updated).getTime()) / 60000);
+    document.getElementById('last-updated').textContent =
+      mins < 60 ? `Updated ${mins}m ago` : `Updated ${Math.round(mins/60)}h ago`;
+    if (mins > 30) document.getElementById('stale-badge').classList.remove('hidden');
+  }
+
+  document.getElementById('main-content').classList.remove('hidden');
+  renderGrid();
+}
+
+function renderGrid() {
+  const data = currentFloor === 'all'
+    ? allAssociates
+    : allAssociates.filter(a => a.floor == currentFloor);
+
+  // Summary
+  const withPt = data.filter(a => a.pt_pct != null);
+  const flagged = data.filter(a => a.flagged);
+  document.getElementById('s-total').textContent = data.length;
+  document.getElementById('s-flagged').textContent = flagged.length;
+  document.getElementById('s-avg').textContent = withPt.length
+    ? (withPt.reduce((s,a) => s + a.pt_pct, 0) / withPt.length).toFixed(1) + '%'
+    : '—';
+
+  // Group by floor
+  const byFloor = {};
+  for (const a of data) {
+    const fl = a.floor || 0;
+    (byFloor[fl] = byFloor[fl] || []).push(a);
+  }
+
+  const grid = document.getElementById('aa-grid');
+  grid.innerHTML = '';
+
+  for (const [fl, aas] of Object.entries(byFloor).sort()) {
+    if (currentFloor === 'all' && fl != 0) {
+      const hdr = document.createElement('div');
+      hdr.className = 'floor-header';
+      hdr.textContent = fl == 0 ? 'Unassigned' : `Floor ${fl}`;
+      grid.appendChild(hdr);
+    }
+    const g = document.createElement('div');
+    g.className = 'grid';
+    for (const a of aas.sort((x,y) => (x.pt_pct||99) - (y.pt_pct||99))) {
+      const pt   = a.pt_pct;
+      const cls  = pt == null ? 'warn' : pt >= 88 ? 'ok' : pt >= 80 ? 'warn' : 'flagged';
+      const fill = pt == null ? 0 : Math.min(100, pt);
+      g.innerHTML += `
+        <div class="aa-card ${a.flagged ? 'flagged' : ''}">
+          <div class="aa-name">${a.name || a.badge}</div>
+          <div class="aa-meta">${a.station ? 'Stn ' + a.station : ''} ${a.floor ? '· Fl ' + a.floor : ''}</div>
+          <div class="pt-bar"><div class="pt-fill ${cls}" style="width:${fill}%"></div></div>
+          <span class="pt-num ${cls}">${pt != null ? pt.toFixed(1) + '%' : 'No data'}</span>
+        </div>`;
+    }
+    grid.appendChild(g);
+  }
+}
+
+// Floor filter buttons
+document.getElementById('floor-filter').addEventListener('click', e => {
+  const btn = e.target.closest('.fl-btn');
+  if (!btn) return;
+  document.querySelectorAll('.fl-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentFloor = btn.dataset.floor;
+  if (allAssociates.length) renderGrid();
+});
+
+init();
+</script>
+</body>
+</html>
