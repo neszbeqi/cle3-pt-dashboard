@@ -5,226 +5,419 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CLE3 PT Dashboard</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-         background: #0f172a; color: #e2e8f0; min-height: 100vh; }
-  .container { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; }
-  .header { display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; border-bottom: 1px solid #334155; padding-bottom: 1rem; }
-  .logo { font-size: 1.5rem; font-weight: 700; color: #f97316; }
-  .badge { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 9999px; font-weight: 600; }
-  .badge-night { background: #1e3a5f; color: #93c5fd; }
-  .badge-day   { background: #3b1f05; color: #fbbf24; }
-  .badge-stale { background: #3b0f0f; color: #fca5a5; }
-  .status-card { background: #1e293b; border: 1px solid #334155; border-radius: 0.75rem;
-                 padding: 1.5rem; margin-bottom: 1.5rem; }
-  .status-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;
-                  color: #64748b; margin-bottom: 0.5rem; }
-  .status-main { font-size: 1.1rem; color: #e2e8f0; }
-  .connect-btn { display: inline-block; margin-top: 1rem; padding: 0.6rem 1.4rem;
-                 background: #f97316; color: white; border: none; border-radius: 0.5rem;
-                 font-size: 0.9rem; font-weight: 600; cursor: pointer; text-decoration: none; }
-  .connect-btn:hover { background: #ea580c; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
-  .aa-card { background: #1e293b; border: 1px solid #334155; border-radius: 0.5rem; padding: 1rem; }
-  .aa-card.flagged { border-color: #f97316; }
-  .aa-name { font-weight: 600; font-size: 0.95rem; margin-bottom: 0.25rem; }
-  .aa-meta { font-size: 0.75rem; color: #94a3b8; }
-  .pt-bar { height: 6px; background: #334155; border-radius: 3px; margin: 0.5rem 0; }
-  .pt-fill { height: 6px; border-radius: 3px; }
-  .pt-fill.ok      { background: #22c55e; }
-  .pt-fill.warn    { background: #f59e0b; }
-  .pt-fill.flagged { background: #ef4444; }
-  .pt-num { font-size: 0.8rem; font-weight: 700; }
-  .pt-num.ok      { color: #22c55e; }
-  .pt-num.warn    { color: #f59e0b; }
-  .pt-num.flagged { color: #ef4444; }
-  .spinner { border: 3px solid #334155; border-top-color: #f97316; border-radius: 50%;
-             width: 2rem; height: 2rem; animation: spin 0.8s linear infinite; margin: 3rem auto; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .floor-header { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em;
-                  color: #64748b; margin: 1.5rem 0 0.75rem; }
-  .summary-row { display: flex; gap: 1.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
-  .summary-stat { text-align: center; }
-  .summary-stat .num { font-size: 1.75rem; font-weight: 700; }
-  .summary-stat .lbl { font-size: 0.7rem; color: #64748b; text-transform: uppercase; }
-  .offline-note { background: #1c1010; border: 1px solid #7f1d1d; border-radius: 0.5rem;
-                  padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #fca5a5; }
-  #floor-filter { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
-  .fl-btn { padding: 0.3rem 0.8rem; background: #1e293b; border: 1px solid #334155;
-            color: #94a3b8; border-radius: 0.375rem; cursor: pointer; font-size: 0.8rem; }
-  .fl-btn.active { background: #f97316; border-color: #f97316; color: white; }
-  .hidden { display: none !important; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+       background: #f8fafc; color: #1e293b; min-height: 100vh; }
+
+/* ── Header ── */
+.header { background: #0f172a; color: #e2e8f0; padding: 0.75rem 1.5rem;
+          display: flex; align-items: center; gap: 1rem; }
+.logo { font-size: 1.15rem; font-weight: 700; color: #f97316; letter-spacing: -0.02em; }
+.badge { font-size: 0.7rem; padding: 0.2rem 0.55rem; border-radius: 9999px;
+         font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.badge-night { background: #1e3a5f; color: #93c5fd; }
+.badge-day   { background: #3b1f05; color: #fbbf24; }
+.hdr-stats   { display: flex; gap: 1.5rem; margin-left: 1rem; }
+.hdr-stat    { font-size: 0.8rem; color: #94a3b8; }
+.hdr-stat span { font-weight: 600; }
+.hdr-stat .red   { color: #f87171; }
+.hdr-stat .amber { color: #fbbf24; }
+.hdr-stat .green { color: #4ade80; }
+.hdr-right { margin-left: auto; font-size: 0.75rem; color: #64748b; }
+
+/* ── Status Banner ── */
+.banner { padding: 0.6rem 1.5rem; font-size: 0.82rem; display: flex; align-items: center; gap: 0.5rem; }
+.banner-connecting { background: #1e293b; color: #94a3b8; }
+.banner-live    { background: #052e16; color: #86efac; border-bottom: 1px solid #166534; }
+.banner-offline { background: #fefce8; color: #713f12; border-bottom: 1px solid #fde68a; }
+.banner-stale   { background: #fff7ed; color: #9a3412; border-bottom: 1px solid #fed7aa; }
+.live-link { font-weight: 600; color: #4ade80; text-decoration: underline; cursor: pointer; margin-left: 0.5rem; }
+.spinner-sm { display: inline-block; width: 14px; height: 14px; border: 2px solid #475569;
+              border-top-color: #94a3b8; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Tabs ── */
+.tabs { background: #fff; border-bottom: 1px solid #e2e8f0; padding: 0 1.5rem;
+        display: flex; gap: 0; }
+.tab { padding: 0.75rem 1.25rem; font-size: 0.85rem; font-weight: 500; color: #64748b;
+       cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tab.active { color: #0f172a; border-bottom-color: #f97316; font-weight: 600; }
+.tab:hover:not(.active) { color: #334155; }
+.tab-badge { background: #ef4444; color: white; font-size: 0.65rem; padding: 0.1rem 0.4rem;
+             border-radius: 9999px; margin-left: 0.3rem; font-weight: 700; vertical-align: middle; }
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+/* ── Floor filter ── */
+.floor-bar { padding: 0.75rem 1.5rem; background: #fff; border-bottom: 1px solid #e2e8f0;
+             display: flex; align-items: center; gap: 0.5rem; }
+.floor-bar label { font-size: 0.78rem; color: #64748b; font-weight: 500; margin-right: 0.25rem; }
+.fl-btn { padding: 0.3rem 0.75rem; background: #f1f5f9; border: 1px solid #e2e8f0;
+          color: #475569; border-radius: 0.375rem; cursor: pointer; font-size: 0.78rem;
+          font-weight: 500; transition: background 0.1s; }
+.fl-btn.active { background: #0f172a; border-color: #0f172a; color: #fff; }
+.fl-btn:hover:not(.active) { background: #e2e8f0; }
+
+/* ── Floor section ── */
+.content { padding: 1rem 1.5rem; }
+.floor-section { margin-bottom: 1.5rem; }
+.floor-hdr { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.75rem;
+             padding-bottom: 0.5rem; border-bottom: 2px solid #e2e8f0; }
+.floor-title { font-size: 0.95rem; font-weight: 700; color: #0f172a; }
+.floor-count { font-size: 0.78rem; color: #64748b; }
+.floor-pt    { font-size: 1.1rem; font-weight: 700; margin-left: auto; }
+.floor-bar-wrap { flex: 0 0 120px; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
+.floor-bar-fill { height: 8px; border-radius: 4px; }
+
+/* ── Table ── */
+table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+thead th { text-align: left; padding: 0.4rem 0.75rem; font-size: 0.7rem; text-transform: uppercase;
+           letter-spacing: 0.05em; color: #94a3b8; font-weight: 600; background: #f8fafc;
+           border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
+tbody tr { border-bottom: 1px solid #f1f5f9; }
+tbody tr:hover { background: #f8fafc; }
+tbody tr.flagged-row { border-left: 3px solid #ef4444; }
+tbody tr.watch-row   { border-left: 3px solid #f59e0b; }
+td { padding: 0.55rem 0.75rem; vertical-align: middle; }
+.td-station { color: #64748b; font-size: 0.78rem; font-weight: 500; width: 80px; }
+.td-name    { font-weight: 600; color: #1e293b; }
+.td-badge   { color: #94a3b8; font-size: 0.75rem; }
+.td-pt { font-weight: 700; width: 70px; }
+.pt-red    { color: #ef4444; }
+.pt-amber  { color: #f59e0b; }
+.pt-green  { color: #16a34a; }
+.pt-bar-wrap { width: 120px; height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; }
+.pt-bar-fill { height: 6px; border-radius: 3px; }
+.bg-red   { background: #ef4444; }
+.bg-amber { background: #f59e0b; }
+.bg-green { background: #22c55e; }
+.td-idle   { color: #94a3b8; font-size: 0.78rem; width: 60px; }
+.td-status { width: 80px; }
+.status-chip { font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 0.25rem; }
+.status-below  { background: #fee2e2; color: #b91c1c; }
+.status-watch  { background: #fef3c7; color: #b45309; }
+.status-good   { background: #dcfce7; color: #15803d; }
+.status-none   { background: #f1f5f9; color: #94a3b8; }
+.consec-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+              background: #ef4444; margin-left: 4px; vertical-align: middle; }
+
+/* ── Flagged tab ── */
+.flag-card { background: #fff; border: 1px solid #fecaca; border-radius: 0.5rem;
+             padding: 1rem 1.25rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 1rem; }
+.flag-station { font-size: 0.78rem; color: #64748b; width: 60px; }
+.flag-name    { font-weight: 600; flex: 1; }
+.flag-pt      { font-weight: 700; font-size: 1rem; }
+.flag-idle    { font-size: 0.78rem; color: #94a3b8; }
+.flag-floor   { font-size: 0.7rem; padding: 0.15rem 0.45rem; background: #f1f5f9;
+                color: #475569; border-radius: 0.25rem; font-weight: 600; }
+
+/* ── Offline note ── */
+.offline-note { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 0.5rem;
+                padding: 0.75rem 1rem; margin: 1rem 1.5rem; font-size: 0.82rem; color: #9a3412; }
+
+/* ── Empty state ── */
+.empty { text-align: center; padding: 4rem 1rem; color: #94a3b8; font-size: 0.9rem; }
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .hdr-stats, .floor-bar-wrap { display: none; }
+  .pt-bar-wrap { width: 60px; }
+  .td-idle { display: none; }
+}
+.hidden { display: none !important; }
 </style>
 </head>
 <body>
-<div class="container">
-  <div class="header">
-    <span class="logo">CLE3 PT</span>
-    <span id="shift-badge" class="badge badge-night">Night Shift</span>
-    <span id="date-badge" style="font-size:0.8rem;color:#64748b"></span>
-    <span id="stale-badge" class="badge badge-stale hidden">DATA STALE</span>
-    <span style="flex:1"></span>
-    <span id="last-updated" style="font-size:0.75rem;color:#64748b"></span>
+
+<!-- Header -->
+<div class="header">
+  <span class="logo">CLE3 PT</span>
+  <span id="shift-badge" class="badge badge-night">Night Shift</span>
+  <span id="date-str" style="font-size:0.8rem;color:#64748b"></span>
+  <div class="hdr-stats">
+    <div class="hdr-stat">Total: <span id="s-total">--</span></div>
+    <div class="hdr-stat"><span class="red" id="s-below">--</span> below</div>
+    <div class="hdr-stat"><span class="amber" id="s-watch">--</span> watch</div>
+    <div class="hdr-stat"><span class="green" id="s-good">--</span> on target</div>
+  </div>
+  <div class="hdr-right" id="updated-str"></div>
+</div>
+
+<!-- Status Banner -->
+<div id="banner-connecting" class="banner banner-connecting">
+  <span class="spinner-sm"></span>&nbsp; Looking for live server&hellip;
+</div>
+<div id="banner-live" class="banner banner-live hidden">
+  &#x25cf; Live server found &mdash;
+  <a id="live-link" href="#" class="live-link" target="_blank">Open Full Dashboard &rarr;</a>
+  <span style="margin-left:1rem;color:#86efac;font-size:0.78rem">(redirecting in <span id="redirect-count">3</span>s)</span>
+</div>
+<div id="banner-offline" class="banner banner-offline hidden">
+  &#x26A0; No active server found &mdash; showing last known data. Actions cannot be logged until a server is online.
+</div>
+<div id="banner-stale" class="banner banner-stale hidden">
+  &#x26A0; Data is more than 30 minutes old.
+</div>
+
+<!-- Offline note -->
+<div id="offline-msg" class="offline-note hidden">
+  No data yet &mdash; a server needs to run at least once to populate this page.
+</div>
+
+<!-- Main content -->
+<div id="main" class="hidden">
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" data-tab="floor">Floor View</div>
+    <div class="tab" data-tab="flagged">Flagged <span class="tab-badge" id="flag-count">0</span></div>
   </div>
 
-  <div id="connecting-card" class="status-card">
-    <div class="status-title">Looking for active server…</div>
-    <div class="spinner"></div>
+  <!-- Floor filter -->
+  <div class="floor-bar">
+    <label>Floor:</label>
+    <button class="fl-btn active" data-floor="all">All</button>
+    <button class="fl-btn" data-floor="1">1</button>
+    <button class="fl-btn" data-floor="2">2</button>
+    <button class="fl-btn" data-floor="3">3</button>
+    <button class="fl-btn" data-floor="4">4</button>
   </div>
 
-  <div id="live-banner" class="status-card hidden" style="border-color:#22c55e">
-    <div class="status-title">Live server found</div>
-    <div class="status-main" id="live-url-text"></div>
-    <a id="live-url-link" href="#" class="connect-btn">Open Full Dashboard →</a>
+  <!-- Floor view -->
+  <div id="pane-floor" class="tab-pane active">
+    <div class="content" id="floor-content"></div>
   </div>
 
-  <div id="offline-banner" class="offline-note hidden">
-    ⚠ No active server found. Showing last known data — actions cannot be logged until a server is online.
+  <!-- Flagged tab -->
+  <div id="pane-flagged" class="tab-pane">
+    <div class="content" id="flagged-content"></div>
   </div>
 
-  <div id="main-content" class="hidden">
-    <div class="summary-row">
-      <div class="summary-stat"><div class="num" id="s-total">—</div><div class="lbl">Associates</div></div>
-      <div class="summary-stat"><div class="num" id="s-flagged" style="color:#ef4444">—</div><div class="lbl">Flagged</div></div>
-      <div class="summary-stat"><div class="num" id="s-avg">—</div><div class="lbl">Avg PT%</div></div>
-    </div>
-    <div id="floor-filter">
-      <button class="fl-btn active" data-floor="all">All Floors</button>
-      <button class="fl-btn" data-floor="1">Floor 1</button>
-      <button class="fl-btn" data-floor="2">Floor 2</button>
-      <button class="fl-btn" data-floor="3">Floor 3</button>
-      <button class="fl-btn" data-floor="4">Floor 4</button>
-    </div>
-    <div id="aa-grid"></div>
-  </div>
 </div>
 
 <script>
 const REPO = 'neszbeqi/cle3-pt-dashboard';
-const RAW  = `https://raw.githubusercontent.com/${REPO}/main`;
+const RAW  = 'https://raw.githubusercontent.com/' + REPO + '/main';
+const THRESHOLD = 88;
+
+let allAAs = [], currentFloor = 'all';
 
 async function ghFetch(path) {
   try {
-    const r = await fetch(`${RAW}/${path}?_=${Date.now()}`);
+    const r = await fetch(RAW + '/' + path + '?_=' + Date.now());
     if (r.ok) return r.json();
-  } catch {}
+  } catch(e) {}
   return null;
 }
 
-let currentFloor = 'all';
-let allAssociates = [];
-
 async function init() {
-  // 1. Try to find active server
+  // 1. Try live server
   const urlData = await ghFetch('data/current_url.json');
   if (urlData && urlData.url && urlData.updated) {
     const ageMin = (Date.now() - new Date(urlData.updated).getTime()) / 60000;
-    if (ageMin < 10) {
+    if (ageMin < 15) {
       try {
         const ctrl = new AbortController();
         setTimeout(() => ctrl.abort(), 4000);
         const ping = await fetch(urlData.url + '/api/status', { signal: ctrl.signal });
         if (ping.ok) {
-          document.getElementById('connecting-card').classList.add('hidden');
-          document.getElementById('live-banner').classList.remove('hidden');
-          document.getElementById('live-url-text').textContent = urlData.url;
-          document.getElementById('live-url-link').href = urlData.url;
+          // Auto-redirect with countdown
+          document.getElementById('banner-connecting').classList.add('hidden');
+          document.getElementById('banner-live').classList.remove('hidden');
+          const link = document.getElementById('live-link');
+          link.href = urlData.url;
+          let n = 3;
+          const tick = setInterval(() => {
+            n--;
+            document.getElementById('redirect-count').textContent = n;
+            if (n <= 0) { clearInterval(tick); window.location.href = urlData.url; }
+          }, 1000);
           return;
         }
-      } catch {}
+      } catch(e) {}
     }
   }
 
-  // 2. No live server — show last known data
-  document.getElementById('connecting-card').classList.add('hidden');
-  document.getElementById('offline-banner').classList.remove('hidden');
+  // 2. Offline fallback: show live.json data
+  document.getElementById('banner-connecting').classList.add('hidden');
+  document.getElementById('banner-offline').classList.remove('hidden');
+
   const live = await ghFetch('data/live.json');
-  if (live && live.associates && live.associates.length) {
-    renderData(live);
-  } else {
-    document.getElementById('main-content').innerHTML =
-      '<div style="color:#64748b;text-align:center;padding:3rem">No data available yet — a server needs to run at least once.</div>';
-    document.getElementById('main-content').classList.remove('hidden');
+  if (!live || !live.associates || !live.associates.length) {
+    document.getElementById('offline-msg').classList.remove('hidden');
+    return;
   }
+  renderAll(live);
 }
 
-function renderData(live) {
-  allAssociates = live.associates || [];
+function ptClass(pt) {
+  if (pt == null) return 'status-none';
+  if (pt >= THRESHOLD) return 'pt-green';
+  if (pt >= 80) return 'pt-amber';
+  return 'pt-red';
+}
+function bgClass(pt) {
+  if (pt == null) return '';
+  if (pt >= THRESHOLD) return 'bg-green';
+  if (pt >= 80) return 'bg-amber';
+  return 'bg-red';
+}
+function statusChip(pt) {
+  if (pt == null) return '<span class="status-chip status-none">No data</span>';
+  if (pt >= THRESHOLD) return '<span class="status-chip status-good">&#x2713; Good</span>';
+  if (pt >= 80) return '<span class="status-chip status-watch">&Delta; Watch</span>';
+  return '<span class="status-chip status-below">&times; Below</span>';
+}
+function fmtPt(pt) {
+  return pt != null ? pt.toFixed(1) + '%' : '--';
+}
+function fmtIdle(a) {
+  const idle = a.tc_idle_min || a.inferred;
+  if (idle == null) return '--';
+  if (a.tc_idle_min != null) return Math.round(a.tc_idle_min) + 'm';
+  return (idle * 60).toFixed(0) + 'm';
+}
 
-  // Header info
-  const shiftBadge = document.getElementById('shift-badge');
-  shiftBadge.textContent = (live.shift === 'night' ? 'Night' : 'Day') + ' Shift';
-  shiftBadge.className = 'badge ' + (live.shift === 'night' ? 'badge-night' : 'badge-day');
-  document.getElementById('date-badge').textContent = live.date || '';
+function renderAll(live) {
+  allAAs = live.associates || [];
+
+  // Header
+  const shift = live.shift || 'night';
+  const badge = document.getElementById('shift-badge');
+  badge.textContent = (shift === 'night' ? 'Night' : 'Day') + ' Shift';
+  badge.className = 'badge ' + (shift === 'night' ? 'badge-night' : 'badge-day');
+  document.getElementById('date-str').textContent = live.date || '';
 
   if (live.updated) {
     const mins = Math.round((Date.now() - new Date(live.updated).getTime()) / 60000);
-    document.getElementById('last-updated').textContent =
-      mins < 60 ? `Updated ${mins}m ago` : `Updated ${Math.round(mins/60)}h ago`;
-    if (mins > 30) document.getElementById('stale-badge').classList.remove('hidden');
+    document.getElementById('updated-str').textContent =
+      'Updated ' + (mins < 60 ? mins + 'm ago' : Math.round(mins/60) + 'h ago');
+    if (mins > 30) document.getElementById('banner-stale').classList.remove('hidden');
   }
 
-  document.getElementById('main-content').classList.remove('hidden');
-  renderGrid();
+  document.getElementById('main').classList.remove('hidden');
+  refresh();
 }
 
-function renderGrid() {
+function refresh() {
   const data = currentFloor === 'all'
-    ? allAssociates
-    : allAssociates.filter(a => a.floor == currentFloor);
+    ? allAAs
+    : allAAs.filter(a => String(a.floor) === currentFloor);
 
-  // Summary
   const withPt = data.filter(a => a.pt_pct != null);
-  const flagged = data.filter(a => a.flagged);
-  document.getElementById('s-total').textContent = data.length;
-  document.getElementById('s-flagged').textContent = flagged.length;
-  document.getElementById('s-avg').textContent = withPt.length
-    ? (withPt.reduce((s,a) => s + a.pt_pct, 0) / withPt.length).toFixed(1) + '%'
-    : '—';
+  const below  = data.filter(a => a.pt_pct != null && a.pt_pct < THRESHOLD && a.pt_pct < 80);
+  const watch  = data.filter(a => a.pt_pct != null && a.pt_pct >= 80 && a.pt_pct < THRESHOLD);
+  const good   = data.filter(a => a.pt_pct != null && a.pt_pct >= THRESHOLD);
 
+  document.getElementById('s-total').textContent = data.length;
+  document.getElementById('s-below').textContent = below.length;
+  document.getElementById('s-watch').textContent = watch.length;
+  document.getElementById('s-good').textContent  = good.length;
+  document.getElementById('flag-count').textContent = (below.length + watch.length);
+
+  renderFloor(data);
+  renderFlagged(data);
+}
+
+function renderFloor(data) {
   // Group by floor
   const byFloor = {};
   for (const a of data) {
     const fl = a.floor || 0;
     (byFloor[fl] = byFloor[fl] || []).push(a);
   }
+  const el = document.getElementById('floor-content');
+  el.innerHTML = '';
+  for (const [fl, aas] of Object.entries(byFloor).sort((a,b) => +a[0] - +b[0])) {
+    const flNum = fl == 0 ? 'Unassigned' : 'Floor ' + fl;
+    const sorted = aas.slice().sort((a,b) => (a.pt_pct||999) - (b.pt_pct||999));
+    const pts = aas.filter(a => a.pt_pct != null).map(a => a.pt_pct);
+    const avg = pts.length ? pts.reduce((s,v) => s+v, 0) / pts.length : null;
+    const below = aas.filter(a => a.pt_pct != null && a.pt_pct < 80).length;
+    const watch = aas.filter(a => a.pt_pct != null && a.pt_pct >= 80 && a.pt_pct < THRESHOLD).length;
+    const good  = aas.filter(a => a.pt_pct != null && a.pt_pct >= THRESHOLD).length;
+    const pClass = avg == null ? '' : avg >= THRESHOLD ? 'pt-green' : avg >= 80 ? 'pt-amber' : 'pt-red';
+    const fillW = avg != null ? Math.min(100, avg).toFixed(1) : 0;
+    const fillC = avg == null ? '' : avg >= THRESHOLD ? 'bg-green' : avg >= 80 ? 'bg-amber' : 'bg-red';
 
-  const grid = document.getElementById('aa-grid');
-  grid.innerHTML = '';
+    let html = '<div class="floor-section">';
+    html += '<div class="floor-hdr">';
+    html += '<span class="floor-title">' + flNum + '</span>';
+    html += '<span class="floor-count">' + aas.length + ' AAs</span>';
+    if (avg != null) {
+      html += '<span class="' + pClass + '" style="margin-left:auto;font-weight:700;font-size:1.05rem">' + avg.toFixed(1) + '%</span>';
+      html += '<div class="floor-bar-wrap"><div class="floor-bar-fill ' + fillC + '" style="width:' + fillW + '%"></div></div>';
+    }
+    if (below) html += '<span style="font-size:0.75rem;color:#ef4444">' + below + ' below</span>';
+    if (watch) html += '<span style="font-size:0.75rem;color:#f59e0b">' + watch + ' watch</span>';
+    if (good)  html += '<span style="font-size:0.75rem;color:#16a34a">' + good + ' on target</span>';
+    html += '</div>';
 
-  for (const [fl, aas] of Object.entries(byFloor).sort()) {
-    if (currentFloor === 'all' && fl != 0) {
-      const hdr = document.createElement('div');
-      hdr.className = 'floor-header';
-      hdr.textContent = fl == 0 ? 'Unassigned' : `Floor ${fl}`;
-      grid.appendChild(hdr);
+    html += '<table><thead><tr>';
+    html += '<th>Station</th><th>Name</th><th>Badge</th><th>PT%</th><th>Bar</th><th>Idle</th><th>Status</th>';
+    html += '</tr></thead><tbody>';
+    for (const a of sorted) {
+      const pt  = a.pt_pct;
+      const row_cls = pt == null ? '' : pt >= THRESHOLD ? '' : pt >= 80 ? 'watch-row' : 'flagged-row';
+      const ptC = ptClass(pt);
+      const bgC = bgClass(pt);
+      const fill = pt != null ? Math.min(100, pt).toFixed(1) : 0;
+      const dots = a.consecutive_low > 1 ? '<span class="consec-dot" title="' + a.consecutive_low + ' consecutive shifts below"></span>'.repeat(Math.min(a.consecutive_low, 5)) : '';
+      html += '<tr class="' + row_cls + '">';
+      html += '<td class="td-station">' + (a.station || '--') + '</td>';
+      html += '<td class="td-name">' + (a.name || a.badge) + dots + '</td>';
+      html += '<td class="td-badge">' + a.badge + '</td>';
+      html += '<td class="td-pt ' + ptC + '">' + fmtPt(pt) + '</td>';
+      html += '<td><div class="pt-bar-wrap"><div class="pt-bar-fill ' + bgC + '" style="width:' + fill + '%"></div></div></td>';
+      html += '<td class="td-idle">' + fmtIdle(a) + '</td>';
+      html += '<td class="td-status">' + statusChip(pt) + '</td>';
+      html += '</tr>';
     }
-    const g = document.createElement('div');
-    g.className = 'grid';
-    for (const a of aas.sort((x,y) => (x.pt_pct||99) - (y.pt_pct||99))) {
-      const pt   = a.pt_pct;
-      const cls  = pt == null ? 'warn' : pt >= 88 ? 'ok' : pt >= 80 ? 'warn' : 'flagged';
-      const fill = pt == null ? 0 : Math.min(100, pt);
-      g.innerHTML += `
-        <div class="aa-card ${a.flagged ? 'flagged' : ''}">
-          <div class="aa-name">${a.name || a.badge}</div>
-          <div class="aa-meta">${a.station ? 'Stn ' + a.station : ''} ${a.floor ? '· Fl ' + a.floor : ''}</div>
-          <div class="pt-bar"><div class="pt-fill ${cls}" style="width:${fill}%"></div></div>
-          <span class="pt-num ${cls}">${pt != null ? pt.toFixed(1) + '%' : 'No data'}</span>
-        </div>`;
-    }
-    grid.appendChild(g);
+    html += '</tbody></table></div>';
+    el.innerHTML += html;
   }
 }
 
-// Floor filter buttons
-document.getElementById('floor-filter').addEventListener('click', e => {
+function renderFlagged(data) {
+  const flagged = data.filter(a => a.pt_pct != null && a.pt_pct < THRESHOLD)
+                      .sort((a,b) => a.pt_pct - b.pt_pct);
+  const el = document.getElementById('flagged-content');
+  if (!flagged.length) {
+    el.innerHTML = '<div class="empty">No flagged associates on this floor.</div>';
+    return;
+  }
+  el.innerHTML = flagged.map(a => {
+    const pt = a.pt_pct;
+    const ptC = ptClass(pt);
+    const flLabel = a.floor ? 'Floor ' + a.floor : '';
+    return '<div class="flag-card">' +
+      '<span class="flag-station">' + (a.station || '--') + '</span>' +
+      '<span class="flag-name">' + (a.name || a.badge) + '</span>' +
+      (flLabel ? '<span class="flag-floor">' + flLabel + '</span>' : '') +
+      '<span class="flag-idle td-idle">' + fmtIdle(a) + ' idle</span>' +
+      '<span class="flag-pt ' + ptC + '">' + fmtPt(pt) + '</span>' +
+      '</div>';
+  }).join('');
+}
+
+// Tab switching
+document.querySelector('.tabs').addEventListener('click', e => {
+  const tab = e.target.closest('.tab');
+  if (!tab) return;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  tab.classList.add('active');
+  document.getElementById('pane-' + tab.dataset.tab).classList.add('active');
+});
+
+// Floor filter
+document.querySelector('.floor-bar').addEventListener('click', e => {
   const btn = e.target.closest('.fl-btn');
   if (!btn) return;
   document.querySelectorAll('.fl-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   currentFloor = btn.dataset.floor;
-  if (allAssociates.length) renderGrid();
+  if (allAAs.length) refresh();
 });
 
 init();
