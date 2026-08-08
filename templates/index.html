@@ -37,6 +37,12 @@
   <button class="tab-btn" data-tab="actions">
     Actions <span id="badge-actions" class="nav-badge hidden">0</span>
   </button>
+  <button class="tab-btn" data-tab="departed">
+    Departed <span id="badge-departed" class="nav-badge hidden">0</span>
+  </button>
+  <button class="tab-btn" data-tab="breaks">
+    Breaks <span id="badge-breaks" class="nav-badge nav-badge-warn hidden">0</span>
+  </button>
 </nav>
 
 <div id="tab-floor" class="tab-pane">
@@ -69,6 +75,14 @@
 
 <div id="tab-actions" class="tab-pane hidden">
   <div id="actions-content"><div class="empty-state">No actions logged this shift</div></div>
+</div>
+
+<div id="tab-departed" class="tab-pane hidden">
+  <div id="departed-content"><div class="empty-state">No departed associates tracked yet.</div></div>
+</div>
+
+<div id="tab-breaks" class="tab-pane hidden">
+  <div id="breaks-content"><div class="empty-state">Break compliance data loads with timecard refresh — check back shortly.</div></div>
 </div>
 
 <div id="modal" class="modal hidden">
