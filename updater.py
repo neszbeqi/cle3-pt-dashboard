@@ -1,85 +1,89 @@
 """
 Auto-updater for CLE3 PT Dashboard.
-Checks GitHub on startup for a newer version.json, downloads changed files,
-and notifies the user to restart.
-
-Runs silently in a background thread — never blocks the UI.
+Checks GitHub for updates and applies them before the server starts.
+Files in the 'cle3_pt_dashboard' subfolder of the repo are downloaded.
 """
-import os, sys, json, threading, urllib.request, shutil, tempfile
+import urllib.request, json, zipfile, io, os, sys
 
-REPO_RAW   = 'https://raw.githubusercontent.com/neszbeqi/cle3-pt-dashboard/main'
-VERSION_URL = f'{REPO_RAW}/version.json'
+REPO      = 'neszbeqi/cle3-pt-dashboard'
+SUBFOLDER = 'cle3_pt_dashboard'
+API_URL   = f'https://api.github.com/repos/{REPO}/commits?path={SUBFOLDER}&per_page=1'
+ZIP_URL   = f'https://github.com/{REPO}/archive/refs/heads/main.zip'
+APP_DIR   = os.path.dirname(os.path.abspath(__file__))
+VER_FILE  = os.path.join(APP_DIR, 'version.txt')
 
-UPDATABLE_FILES = [
-    'app.py', 'fclm.py', 'processor.py', 'history.py',
-    'generate_report.py', 'build_trends.py', 'backfill_shifts.py',
-]
+# Files/folders that should never be overwritten by an update
+PROTECTED = {'version.txt', 'venv', '__pycache__', '.git'}
 
-def _install_dir():
-    """Where the running app's source files live."""
-    if getattr(sys, 'frozen', False):
-        return os.path.dirname(sys.executable)
-    return os.path.dirname(os.path.abspath(__file__))
 
-def _local_version():
-    vpath = os.path.join(_install_dir(), 'version.json')
+def get_local_sha():
     try:
-        with open(vpath) as f:
-            return json.load(f).get('version', '0.0.0')
-    except Exception:
-        return '0.0.0'
+        return open(VER_FILE, encoding='utf-8').read().strip()
+    except FileNotFoundError:
+        return ''
 
-def _remote_version():
+
+def get_remote_sha():
     try:
-        with urllib.request.urlopen(VERSION_URL, timeout=5) as r:
-            return json.loads(r.read()).get('version', '0.0.0')
-    except Exception:
-        return None
+        req = urllib.request.Request(API_URL, headers={'User-Agent': 'cle3-pt-updater/1.0'})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read())
+            if data:
+                return data[0]['sha'][:7]
+    except Exception as e:
+        print(f'[updater] Could not reach GitHub: {e}')
+    return ''
 
-def _download_file(fname):
-    url = f'{REPO_RAW}/{fname}'
-    dest = os.path.join(_install_dir(), fname)
-    tmp  = dest + '.tmp'
+
+def apply_update():
+    print('[updater] Downloading update...')
+    req = urllib.request.Request(ZIP_URL, headers={'User-Agent': 'cle3-pt-updater/1.0'})
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        zdata = resp.read()
+
+    prefix = f'cle3-pt-dashboard-main/{SUBFOLDER}/'
+    count  = 0
+    with zipfile.ZipFile(io.BytesIO(zdata)) as zf:
+        for info in zf.infolist():
+            if not info.filename.startswith(prefix):
+                continue
+            rel = info.filename[len(prefix):]
+            if not rel:
+                continue
+            top = rel.split('/')[0]
+            if top in PROTECTED:
+                continue
+            dest = os.path.join(APP_DIR, rel)
+            if info.is_dir():
+                os.makedirs(dest, exist_ok=True)
+            else:
+                os.makedirs(os.path.dirname(dest) or APP_DIR, exist_ok=True)
+                with zf.open(info) as src:
+                    open(dest, 'wb').write(src.read())
+                count += 1
+    print(f'[updater] Applied {count} files.')
+
+
+def main():
+    local  = get_local_sha()
+    remote = get_remote_sha()
+
+    if not remote:
+        print('[updater] Skipping update check (no network or repo not pushed yet).')
+        return
+
+    if local == remote:
+        print(f'[updater] Up to date ({local}).')
+        return
+
+    print(f'[updater] Update available: {local or "first install"} -> {remote}')
     try:
-        urllib.request.urlretrieve(url, tmp)
-        shutil.move(tmp, dest)
-        return True
-    except Exception:
-        if os.path.exists(tmp):
-            os.remove(tmp)
-        return False
+        apply_update()
+        open(VER_FILE, 'w', encoding='utf-8').write(remote)
+        print('[updater] Update complete. Restart will use new files.')
+    except Exception as e:
+        print(f'[updater] Update failed (continuing with current version): {e}')
 
-def _update_version_file(remote):
-    vpath = os.path.join(_install_dir(), 'version.json')
-    try:
-        with open(vpath, 'w') as f:
-            import datetime
-            json.dump({'version': remote,
-                       'updated': datetime.date.today().strftime('%Y-%m-%d')}, f)
-    except Exception:
-        pass
 
-def check(on_update_available=None):
-    """
-    Call this on app startup. Runs in a background thread.
-    on_update_available(new_version) is called on the main thread
-    if a newer version is found and installed.
-    """
-    def _worker():
-        local  = _local_version()
-        remote = _remote_version()
-        if not remote or remote == local:
-            return   # up to date or no internet
-
-        # Download all updatable files
-        updated = []
-        for fname in UPDATABLE_FILES:
-            if _download_file(fname):
-                updated.append(fname)
-
-        if updated:
-            _update_version_file(remote)
-            if on_update_available:
-                on_update_available(remote)
-
-    threading.Thread(target=_worker, daemon=True).start()
+if __name__ == '__main__':
+    main()
