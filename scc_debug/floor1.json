@@ -1,0 +1,663 @@
+{
+  "assignments": [
+    {
+      "login": "aamoatmp",
+      "station": "1105",
+      "source": "floor_plan"
+    },
+    {
+      "login": "tyishan",
+      "station": "1106",
+      "source": "floor_plan"
+    },
+    {
+      "login": "amarsdav",
+      "station": "1107",
+      "source": "floor_plan"
+    },
+    {
+      "login": "tylankki",
+      "station": "1110",
+      "source": "floor_plan"
+    },
+    {
+      "login": "mdonnelo",
+      "station": "1113",
+      "source": "floor_plan"
+    },
+    {
+      "login": "pjoarras",
+      "station": "1115",
+      "source": "floor_plan"
+    },
+    {
+      "login": "aibrowne",
+      "station": "1117",
+      "source": "floor_plan"
+    },
+    {
+      "login": "nicawood",
+      "station": "1121",
+      "source": "floor_plan"
+    },
+    {
+      "login": "allumdom",
+      "station": "1126",
+      "source": "floor_plan"
+    },
+    {
+      "login": "jonsdeo",
+      "station": "1134",
+      "source": "floor_plan"
+    },
+    {
+      "login": "braykwil",
+      "station": "1144",
+      "source": "floor_plan"
+    },
+    {
+      "login": "riveryon",
+      "station": "1146",
+      "source": "floor_plan"
+    },
+    {
+      "login": "obranjon",
+      "station": "1150",
+      "source": "floor_plan"
+    },
+    {
+      "login": "cmobryan",
+      "station": "1152",
+      "source": "floor_plan"
+    },
+    {
+      "login": "callyam",
+      "station": "1156",
+      "source": "floor_plan"
+    },
+    {
+      "login": "icoopcoo",
+      "station": "1158",
+      "source": "floor_plan"
+    },
+    {
+      "login": "qawilkes",
+      "station": "1163",
+      "source": "floor_plan"
+    },
+    {
+      "login": "dgreenei",
+      "station": "1206",
+      "source": "floor_plan"
+    },
+    {
+      "login": "wademill",
+      "station": "1208",
+      "source": "floor_plan"
+    },
+    {
+      "login": "amariwiw",
+      "station": "1209",
+      "source": "floor_plan"
+    },
+    {
+      "login": "diajanip",
+      "station": "1211",
+      "source": "floor_plan"
+    },
+    {
+      "login": "ftharesa",
+      "station": "1216",
+      "source": "floor_plan"
+    },
+    {
+      "login": "twhittse",
+      "station": "1218",
+      "source": "floor_plan"
+    },
+    {
+      "login": "trandjac",
+      "station": "1220",
+      "source": "floor_plan"
+    },
+    {
+      "login": "tweaklef",
+      "station": "1224",
+      "source": "floor_plan"
+    },
+    {
+      "login": "aminorla",
+      "station": "1230",
+      "source": "floor_plan"
+    },
+    {
+      "login": "fostetae",
+      "station": "1232",
+      "source": "floor_plan"
+    },
+    {
+      "login": "gurvkr",
+      "station": "1234",
+      "source": "floor_plan"
+    },
+    {
+      "login": "edontrob",
+      "station": "1236",
+      "source": "floor_plan"
+    },
+    {
+      "login": "ashlyho",
+      "station": "1238",
+      "source": "floor_plan"
+    },
+    {
+      "login": "wshondre",
+      "station": "1240",
+      "source": "floor_plan"
+    },
+    {
+      "login": "kedsemaj",
+      "station": "1243",
+      "source": "floor_plan"
+    },
+    {
+      "login": "lachelo",
+      "station": "1248",
+      "source": "floor_plan"
+    },
+    {
+      "login": "stdacian",
+      "station": "1250",
+      "source": "floor_plan"
+    },
+    {
+      "login": "monwis",
+      "station": "1254",
+      "source": "floor_plan"
+    },
+    {
+      "login": "dslaterv",
+      "station": "1256",
+      "source": "floor_plan"
+    },
+    {
+      "login": "leaklero",
+      "station": "1258",
+      "source": "floor_plan"
+    },
+    {
+      "login": "kadiodji",
+      "station": "1261",
+      "source": "floor_plan"
+    },
+    {
+      "login": "hogalatr",
+      "station": "1304",
+      "source": "floor_plan"
+    },
+    {
+      "login": "zharolhi",
+      "station": "1306",
+      "source": "floor_plan"
+    },
+    {
+      "login": "uriecpri",
+      "station": "1308",
+      "source": "floor_plan"
+    },
+    {
+      "login": "wikeneah",
+      "station": "1311",
+      "source": "floor_plan"
+    },
+    {
+      "login": "anmazzeo",
+      "station": "1315",
+      "source": "floor_plan"
+    },
+    {
+      "login": "smchiena",
+      "station": "1321",
+      "source": "floor_plan"
+    },
+    {
+      "login": "odeawill",
+      "station": "1326",
+      "source": "floor_plan"
+    },
+    {
+      "login": "sesimmow",
+      "station": "1332",
+      "source": "floor_plan"
+    },
+    {
+      "login": "lanbrenc",
+      "station": "1334",
+      "source": "floor_plan"
+    },
+    {
+      "login": "daemaxws",
+      "station": "1344",
+      "source": "floor_plan"
+    },
+    {
+      "login": "donorris",
+      "station": "1350",
+      "source": "floor_plan"
+    },
+    {
+      "login": "hadondre",
+      "station": "1352",
+      "source": "floor_plan"
+    },
+    {
+      "login": "mccbriyo",
+      "station": "1357",
+      "source": "floor_plan"
+    },
+    {
+      "login": "niasiwo",
+      "station": "1358",
+      "source": "floor_plan"
+    },
+    {
+      "login": "ingdevog",
+      "station": "1363",
+      "source": "floor_plan"
+    },
+    {
+      "login": "rosanmic",
+      "station": "1366",
+      "source": "floor_plan"
+    },
+    {
+      "login": "smadisoi",
+      "station": "1369",
+      "source": "floor_plan"
+    },
+    {
+      "login": "sandoug",
+      "station": "1371",
+      "source": "floor_plan"
+    },
+    {
+      "login": "nanybrid",
+      "station": "1372",
+      "source": "floor_plan"
+    },
+    {
+      "login": "lachardx",
+      "station": "1375",
+      "source": "floor_plan"
+    },
+    {
+      "login": "buariyel",
+      "station": "1406",
+      "source": "floor_plan"
+    },
+    {
+      "login": "jshowtym",
+      "station": "1409",
+      "source": "floor_plan"
+    },
+    {
+      "login": "dellqcof",
+      "station": "1411",
+      "source": "floor_plan"
+    },
+    {
+      "login": "hcissmoh",
+      "station": "1414",
+      "source": "floor_plan"
+    },
+    {
+      "login": "careisha",
+      "station": "1416",
+      "source": "floor_plan"
+    },
+    {
+      "login": "latwarre",
+      "station": "1419",
+      "source": "floor_plan"
+    },
+    {
+      "login": "smitgorl",
+      "station": "1423",
+      "source": "floor_plan"
+    },
+    {
+      "login": "zaythomm",
+      "station": "1425",
+      "source": "floor_plan"
+    },
+    {
+      "login": "destedwd",
+      "station": "1427",
+      "source": "floor_plan"
+    },
+    {
+      "login": "cobbscas",
+      "station": "1431",
+      "source": "floor_plan"
+    },
+    {
+      "login": "witjerma",
+      "station": "1433",
+      "source": "floor_plan"
+    },
+    {
+      "login": "durrahma",
+      "station": "1435",
+      "source": "floor_plan"
+    },
+    {
+      "login": "resamueg",
+      "station": "1439",
+      "source": "floor_plan"
+    }
+  ],
+  "name_map": [
+    {
+      "login": "amariwiw",
+      "full_name": "Amari Williams"
+    },
+    {
+      "login": "aminorla",
+      "full_name": "Ree Minor"
+    },
+    {
+      "login": "ashlyho",
+      "full_name": "Ashley Howard"
+    },
+    {
+      "login": "buariyel",
+      "full_name": "ariyell burts"
+    },
+    {
+      "login": "careisha",
+      "full_name": "Careisha Powell"
+    },
+    {
+      "login": "cobbscas",
+      "full_name": "Cassandra C Cobbs"
+    },
+    {
+      "login": "dejuasam",
+      "full_name": "dejuana samuel"
+    },
+    {
+      "login": "dellqcof",
+      "full_name": "Dell Cofield"
+    },
+    {
+      "login": "destedwd",
+      "full_name": "Dess Edwards"
+    },
+    {
+      "login": "dgreenei",
+      "full_name": "Trey Greene"
+    },
+    {
+      "login": "diajanip",
+      "full_name": "Diajanique M. Perry"
+    },
+    {
+      "login": "dslaterv",
+      "full_name": "Daryn Slater"
+    },
+    {
+      "login": "durrahma",
+      "full_name": "Maree Wiley"
+    },
+    {
+      "login": "edontrob",
+      "full_name": "Donta Robinson Jr"
+    },
+    {
+      "login": "fostetae",
+      "full_name": "Tae Foster"
+    },
+    {
+      "login": "ftharesa",
+      "full_name": "Tharesa Vaun Frazier"
+    },
+    {
+      "login": "gurvkr",
+      "full_name": "GAURAV RANA"
+    },
+    {
+      "login": "hcissmoh",
+      "full_name": "Mohamed Cisse"
+    },
+    {
+      "login": "hogalatr",
+      "full_name": "Latrice Hogan"
+    },
+    {
+      "login": "jshowtym",
+      "full_name": "Showtyme Jackson"
+    },
+    {
+      "login": "kadiodji",
+      "full_name": "Kadiata Abasse Djigo"
+    },
+    {
+      "login": "kedsemaj",
+      "full_name": "Semaj Edwards"
+    },
+    {
+      "login": "lachardx",
+      "full_name": "Charde Lawson"
+    },
+    {
+      "login": "lachelo",
+      "full_name": "Lachelle Deanna Oglesby"
+    },
+    {
+      "login": "latwarre",
+      "full_name": "Laticia Warren"
+    },
+    {
+      "login": "leaklero",
+      "full_name": "LeRoy Leaks Jr"
+    },
+    {
+      "login": "mikadamn",
+      "full_name": "Mike Adams"
+    },
+    {
+      "login": "monwis",
+      "full_name": "Monique Michelle Wise"
+    },
+    {
+      "login": "morodeme",
+      "full_name": "Meech Meech"
+    },
+    {
+      "login": "nanybrid",
+      "full_name": "Bridget Nansimbe"
+    },
+    {
+      "login": "resamueg",
+      "full_name": "Samuel Reynolds"
+    },
+    {
+      "login": "roddflet",
+      "full_name": "Roddy Fletcher"
+    },
+    {
+      "login": "rosanmic",
+      "full_name": "Michelle Rosa"
+    },
+    {
+      "login": "sandoug",
+      "full_name": "Douglas Sanderfer"
+    },
+    {
+      "login": "smadisoi",
+      "full_name": "Madison Sims"
+    },
+    {
+      "login": "smitgorl",
+      "full_name": "Vegas Smith"
+    },
+    {
+      "login": "stdacian",
+      "full_name": "Da'Cian Steele"
+    },
+    {
+      "login": "tatiyuan",
+      "full_name": "Tati B"
+    },
+    {
+      "login": "trandjac",
+      "full_name": "Randel Jackson"
+    },
+    {
+      "login": "tweaklef",
+      "full_name": "Teryon Weakley"
+    },
+    {
+      "login": "twhittse",
+      "full_name": "Tamyia R Whittsette"
+    },
+    {
+      "login": "uriecpri",
+      "full_name": "Uriel V"
+    },
+    {
+      "login": "wademill",
+      "full_name": "Wade Alexander Miller"
+    },
+    {
+      "login": "wikeneah",
+      "full_name": "William Keneah"
+    },
+    {
+      "login": "wildaran",
+      "full_name": "Daran Wilson"
+    },
+    {
+      "login": "witjerma",
+      "full_name": "Jermaine Witherspoon"
+    },
+    {
+      "login": "wshondre",
+      "full_name": "Shondrea Woodland"
+    },
+    {
+      "login": "zaythomm",
+      "full_name": "Zayonna Thompson"
+    },
+    {
+      "login": "zharolhi",
+      "full_name": "Harold Hill"
+    }
+  ],
+  "stations_found": [
+    "2026",
+    "1105",
+    "1106",
+    "1107",
+    "1110",
+    "1113",
+    "1115",
+    "1117",
+    "1119",
+    "1121",
+    "1124",
+    "1126",
+    "1128",
+    "1130",
+    "1132",
+    "1134",
+    "1144",
+    "1146",
+    "1150",
+    "1152",
+    "1154",
+    "1156",
+    "1158",
+    "1161",
+    "1163",
+    "1164",
+    "1167",
+    "1169",
+    "1170",
+    "1172",
+    "1206",
+    "1208",
+    "1209",
+    "1211",
+    "1216",
+    "1218",
+    "1220",
+    "1222",
+    "1224",
+    "1227",
+    "1230",
+    "1232",
+    "1234",
+    "1236",
+    "1238",
+    "1240",
+    "1243",
+    "1246",
+    "1248",
+    "1250",
+    "1254",
+    "1256",
+    "1258",
+    "1261",
+    "1304",
+    "1306",
+    "1307",
+    "1308",
+    "1311",
+    "1313",
+    "1315",
+    "1319",
+    "1321",
+    "1324",
+    "1326",
+    "1328",
+    "1332",
+    "1334",
+    "1336",
+    "1344",
+    "1346",
+    "1348",
+    "1350",
+    "1352",
+    "1354",
+    "1357",
+    "1358",
+    "1360",
+    "1363",
+    "1364",
+    "1366",
+    "1369",
+    "1371",
+    "1372",
+    "1375",
+    "1406",
+    "1409",
+    "1411",
+    "1414",
+    "1416",
+    "1419",
+    "1423",
+    "1425",
+    "1427",
+    "1429",
+    "1431",
+    "1433",
+    "1435",
+    "1439",
+    "4491",
+    "4671"
+  ],
+  "pageText": "User Guide | Cut a ticket\nStaffing Command Center\n| \nABE2\nABE3\nABQ1\nACY1\nAFW1\nAGS1\nAKC1\nATL2\nAUS2\nAUS3\nBDL2\nBDL3\nBDL4\nBFI4\nBFI9\nBFL1\nBFL2\nBHM1\nBNA3\nBOI2\nBOS3\nBTR1\nBWI1\nBWI2\nCAE1\nCLE2\nCLE3\nCLT4\nCMH1\nCMH4\nCMH7\nCSG1\nDAB2\nDAL2\nDAL3\nDCA1\nDEN3\nDEN4\nDEN9\nDET3\nDET6\nDFW7\nDSM5\nDTW1\nELP1\nEWR4\nEWR9\nFAT1\nFSD1\nFTW6\nFTW9\nFWA6\nGEG1\nGRR1\nGYR1\nGYR3\nHOU2\nHOU6\nIGQ1\nIND1\nIND4\nIND5\nIND9\nJAN1\nJAX2\nJAX7\nJFK8\nLAS6\nLAS7\nLAX9\nLGA9\nLGB3\nLGB7\nLIT1\nLUK2\nMCO1\nMDW4\nMDW6\nMDW7\nMEM2\nMEM4\nMGE1\nMIA1\nMKC6\nMKE1\nMKE2\nMLB1\nMLI1\nMQY1\nMSP1\nMTN1\nOAK4\nOKC1\nOMA2\nONT2\nONT6\nORD5\nORF3\nORF4\nORH3\nOXR1\nPAE2\nPCW1\nPDX8\nPDX9\nPHL1\nPHL7\nPHX3\nPHX5\nPSP1\nPVD2\nRDG1\nRDU1\nRIC2\nRIC4\nROC1\nSAH1\nSAL4\nSAN3\nSAT2\nSAT3\nSAV4\nSAX1\nSAX2\nSAX3\nSAX5\nSAX6\nSAX7\nSAZ1\nSAZ2\nSAZ3\nSBD2\nSBD6\nSBN1\nSBW1\nSCA2\nSCA3\nSCA4\nSCA5\nSCA7\nSCA9\nSCK6\nSCO1\nSCO2\nSDC1\nSDF1\nSDF4\nSDF8\nSFL1\nSFL2\nSFL3\nSFL4\nSFL6\nSFL7\nSFL8\nSGA1\nSGA2\nSHV1\nSIA2\nSID1\nSIL1\nSIL2\nSIL3\nSIL4\nSIN9\nSJA1\nSKY2\nSLC1\nSMA1\nSMA2\nSMD1\nSMF1\nSMI1\nSMN1\nSMO1\nSMO2\nSNC2\nSNC3\nSNC6\nSNE1\nSNJ1\nSNJ2\nSNJ3\nSNL1\nSNV1\nSNV4\nSNY1\nSNY2\nSNY5\nSOH1\nSOH2\nSOH3\nSOK1\nSOR3\nSPA1\nSPA4\nSPA5\nSRH2\nSRO1\nSSC3\nSSC4\nSSC6\nSSP2\nSSY1\nSTL8\nSTN1\nSTW1\nSTX2\nSTX3\nSTX4\nSTX5\nSTX6\nSTX7\nSTX8\nSTX9\nSUT1\nSUT2\nSVA2\nSVA4\nSWA1\nSWA2\nSWA4\nSWF4\nSWI1\nSYR1\nSYS3\nTLH2\nTPA1\nTPA4\nTUL2\nTUS2\nTYS1\nVGT1\nYEG1\nYEG2\nYHM1\nYOW3\nYXU1\nYYC4\nYYZ4\nAFE\nInbound Dock\nRSP - IB\nRSP - OB\nSingles\nApproved\nPlan\nHistory\nRoster\nConfiguration\nStaffing Boards\nRule Engine\nRSP Adherence: --%\nAugust 7, 2026 | Night | 18:00-22:00 EDT\nAt Station (LEO) At Station (Override) Clocked-In Not Clocked-In\n10\n30\n2\n1\nDiscard Changes\n\nStow: 42/57\n\nAuto-Login\nReplan\nReview\nR\nUnassigned\nGlobal\nUnassigned: 286\nLogin\n\tRate\naamoatmp\n--\naccorrot\n--\nachanll\n--\nadambaue\n--\nadduty\n--\nadekarar\n--\naibrowne\n--\naliradwk\n--\namarbern\n--\namarsdav\n--\nameihasa\n--\nandrrosj\n--\narabdelh\n--\nariaonc\n--\naribharr\n--\naushavon\n--\nbagbogaf\n--\nbalejama\n--\nballkhal\n--\nbeavimat\n--\nbhirosal\n--\nblindsl\n--\nbogdonal\n--\nborcmata\n--\nbowerger\n--\nbrigunte\n--\nbriwstro\n--\nbroizavi\n--\nbroondom\n--\nbrootayy\n--\nbrsstcla\n--\nburjereh\n--\nccofiedo\n--\ncdiaman\n--\ncdonkane\n--\nchantafu\n--\nchglawre\n--\nchryshc\n--\nchvanwyc\n--\nckouric\n--\nclahayad\n--\ncoadphil\n--\ncodarylx\n--\ncooayann\n--\ncookjime\n--\ncorjhari\n--\nculveich\n--\ncyntaama\n--\ndairesh\n--\ndarmonde\n--\ndarneleg\n--\ndaropott\n--\ndarwiscb\n--\ndavisazf\n--\ndavisnk\n--\ndbbecks\n--\ndegeorgm\n--\ndeontemi\n--\ndeshamos\n--\ndevernsh\n--\ndevifarm\n--\ndevmcgow\n--\ndmbowden\n--\ndraebran\n--\ndroserie\n--\ndsilvaro\n--\ndsmithzh\n--\ndujadzia\n--\nebetyron\n--\necathari\n--\neddysuar\n--\nehsteph\n--\nekavinni\n--\nelbertju\n--\nellistow\n--\nemtionna\n--\neribattl\n--\neronaldn\n--\nfenmuham\n--\nflakedeh\n--\nfmorghth\n--\nfrasdyll\n--\nfreetrav\n--\ngcamronw\n--\ngeoiross\n--\ngethanwo\n--\ngodfcame\n--\ngodlerma\n--\ngraymma\n--\ngsankiar\n--\nguyamz\n--\nguyiimat\n--\ngynhunte\n--\nhaltiana\n--\nhamiletw\n--\nhammoala\n--\nhampwil\n--\nharrdori\n--\nhaynoah\n--\nhcoopmar\n--\nhewmaria\n--\nhockinal\n--\nhockinse\n--\nholazari\n--\nhudsogre\n--\nhulakesh\n--\nicmongas\n--\nifrankbo\n--\nikogonzo\n--\njachesne\n--\njackjerc\n--\njacksbke\n--\njagjeffe\n--\njamerehm\n--\njamhelal\n--\njaslanei\n--\njasonoja\n--\njasotaro\n--\njavets\n--\njavosmil\n--\njemalam\n--\njerlabaw\n--\njermesp\n--\njimmmala\n--\njleepatt\n--\njobrayln\n--\njohnhars\n--\njohntjor\n--\njorcara\n--\njordbola\n--\njudahugb\n--\njypolows\n--\nkanedamo\n--\nkashsimm\n--\nkatemund\n--\nkdontezp\n--\nkeontagg\n--\nkeshiagw\n--\nkevfinle\n--\nkhamilbr\n--\nkimaball\n--\nkneumeie\n--\nknorflsa\n--\nknshniya\n--\nkollbria\n--\nkpawlily\n--\nkruzykj\n--\nksteadm\n--\nlamargas\n--\nlavoha\n--\nledonrp\n--\nleglwill\n--\nlibeabdi\n--\nlipsclei\n--\nljohnbry\n--\nlocdemei\n--\nlospragg\n--\nlovtdeve\n--\nlunamach\n--\nlwgarret\n--\nlwkamero\n--\nlwsoncl\n--\nmakonglo\n--\nmaogieva\n--\nmaqsande\n--\nmariotie\n--\nmauresp\n--\nmaynoral\n--\nmcdonajv\n--\nmchardwa\n--\nmcmf\n--\nmicdawsn\n--\nmichmuh\n--\nmigforb\n--\nmikdilon\n--\nmilaasto\n--\nmirakomo\n--\nmisduffi\n--\nmoehld\n--\nmohsalex\n--\nmongsure\n--\nmortonat\n--\nmrewalke\n--\nmriziki\n--\nmspekeai\n--\nnadirmal\n--\nnatspenc\n--\nneszbeqi\n--\nngraaria\n--\nntamadik\n--\nnyjahd\n--\nocalvhar\n--\noriveref\n--\noruckerl\n--\npadbriaj\n--\npaoangel\n--\nphibrobi\n--\npostonke\n--\npullingp\n--\nqjadamas\n--\nraissom\n--\nrayeilm\n--\nrgamblej\n--\nroaclloy\n--\nroaneudi\n--\nroblayla\n--\nrodavont\n--\nrodpjesu\n--\nroleshaw\n--\nrollanmi\n--\nronawht\n--\nroppoyer\n--\nroulcher\n--\nrussecuo\n--\nsalexanm\n--\nsanhhall\n--\nsccollea\n--\nscheidab\n--\nsharibbl\n--\nshchanso\n--\nshontare\n--\nsincwilx\n--\nskbanksa\n--\nsmacalai\n--\nsnipesq\n--\nsonyakin\n--\nsoraihmo\n--\nsrodshau\n--\nstaikees\n--\nstreeang\n--\nsuhadoln\n--\nsyazmind\n--\ntabwilde\n--\ntaezon\n--\ntannasia\n--\ntayain\n--\ntayhallj\n--\ntchamdal\n--\ntebrmcca\n--\ntekorda\n--\nternich\n--\nthomachh\n--\nthomdank\n--\ntiahair\n--\ntpherril\n--\ntracywea\n--\ntragodfr\n--\ntravchr\n--\ntronakel\n--\ntsarafor\n--\nttyrismi\n--\ntyishan\n--\ntylankki\n--\ntzaabbot\n--\nupatomli\n--\nuptono\n--\nusmijade\n--\nvaeellis\n--\nvalealer\n--\nvanevste\n--\nvjakluna\n--\nvmccolma\n--\nvsavontt\n--\nwaelandi\n--\nwaldvogd\n--\nwalkerkb\n--\nwaroyjen\n--\nwatkityw\n--\nwhittnah\n--\nwilquia\n--\nwirshama\n--\nwllisso\n--\nworthjax\n--\nwricierr\n--\nwrxkenne\n--\nxavieobe\n--\nxgiebell\n--\nymylesgr\n--\nyoumonee\n--\nyphelnic\n--\nyrodrema\n--\nyweathju\n--\nzaristew\n--\nzhariat\n--\nztrsmitt\n--\nzyairbak\n--\n0 selected\nClear all\nFloor PlanName List\nA01\nA02\nA03\nA04\nRole\nAssociate Status\nStation Type\nAll\nCohort\nCross Training\n100\nId\tRole\tAssigned\n\n1105 U\n\t\nSBC (ICQA)\n\t\naamoatmp\n\n\n1106 U\n\t\nSRC (ICQA)\n\t\ntyishan\n\n\n1107 U\n\t\nSBC (ICQA)\n\t\namarsdav\n\n\n1110 U\n\t\nSBC (ICQA)\n\t\ntylankki\n\n\n1113 A\n\t\nPick\n\t\nmdonnelo\n\n\n1115 A\n\t\nPick\n\t\npjoarras\n\n\n1117 U\n\t\nCC (ICQA)\n\t\naibrowne\n\n\n1119 A\n\t\t\n\n1121 A\n\t\nPick\n\t\nnicawood\n\n\n1124 U\n\t\t\n\n1126 A\n\t\nPick\n\t\nallumdom\n\n\n1128 A\n\t\t\n\n1130 U\n\t\t\n\n1132 A\n\t\t\n\n1134 A\n\t\nPick\n\t\njonsdeo\n\n\n1144 A\n\t\nPick\n\t\nbraykwil\n\n\n1146 A\n\t\nPick\n\t\nriveryon\n\n\n1150 A\n\t\nPick\n\t\nobranjon\n\n\n1152 A\n\t\nPick\n\t\ncmobryan\n\n\n1154 U\n\t\t\n\n1156 A\n\t\nPick\n\t\ncallyam\n\n\n1158 A\n\t\nPick\n\t\nicoopcoo\n\n\n1161 U\n\t\t\n\n1163 A\n\t\nPick\n\t\nqawilkes\n\n\n1164 A\n\t\t\n\n1167 U\n\t\t\n\n1169 U\n\t\t\n\n1170 U\n\t\t\n\n1172 U\n\t\t200\nId\tRole\tAssigned\n\n1206 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\ndgreenei\n\n\n\n1208 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\nwademill\n\n\n\n1209 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\namariwiw\n\n\n\n1211 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\ndiajanip\n\n\n\n1216 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\nftharesa\n\n\n\n1218 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\ntwhittse\n\n\n\n1220 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\ntrandjac\n\n\n\n1222 U\n\t\t\n\n1224 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\ntweaklef\n\n\n\n1227 U\n\t\t\n\n1230 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\naminorla\n\n\n\n1232 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\nfostetae\n\n\n\n1234 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\ngurvkr\n\n\n\n1236 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\nedontrob\n\n\n\n1238 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\nashlyho\n\n\n\n1240 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\nwshondre\n\n\n\n1243 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\nkedsemaj\n\n\n\n1246 U\n\t\t\n\n1248 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\nlachelo\n\n\n\n1250 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\nstdacian\n\n\n\n1254 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\nmonwis\n\n\n\n1256 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\ndslaterv\n\n\n\n1258 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\nleaklero\n\n\n\n1261 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\nkadiodji\n\n300\nId\tRole\tAssigned\n\n1304 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\nhogalatr\n\n\n\n1306 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\nzharolhi\n\n\n\n1307 U\n\t\t\n\n1308 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\nuriecpri\n\n\n\n1311 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\nwikeneah\n\n\n\n1313 A\n\t\t\n\n1315 A\n\t\nPick\n\t\nanmazzeo\n\n\n1319 A\n\t\t\n\n1321 A\n\t\nPick\n\t\nsmchiena\n\n\n1324 U\n\t\t\n\n1326 A\n\t\nPick\n\t\nodeawill\n\n\n1328 A\n\t\t\n\n1332 A\n\t\nPick\n\t\nsesimmow\n\n\n1334 A\n\t\nPick\n\t\nlanbrenc\n\n\n1336 U\n\t\t\n\n1344 A\n\t\nPick\n\t\ndaemaxws\n\n\n1346 A\n\t\t\n\n1348 U\n\t\t\n\n1350 A\n\t\nPick\n\t\ndonorris\n\n\n1352 A\n\t\nPick\n\t\nhadondre\n\n\n1354 U\n\t\t\n\n1357 A\n\t\nPick\n\t\nmccbriyo\n\n\n1358 A\n\t\nPick\n\t\nniasiwo\n\n\n1360 U\n\t\t\n\n1363 A\n\t\nPick\n\t\ningdevog\n\n\n1364 A\n\t\t\n\n1366 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\nrosanmic\n\n\n\n1369 U\n\t\nCC (ICQA)\nSBC (ICQA)\nSRC (ICQA)\nPick\nStow\n\t\nsmadisoi\n\n\n\n1371 U\n\t\nCC (ICQA)\nSBC (I",
+  "url": "https://staffingcommandcenter-na.aka.amazon.com/CLE3/approved/AR_RSP/paKivaA01/IB",
+  "title": "Staffing Command Center"
+}
