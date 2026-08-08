@@ -1,36 +1,22 @@
-PT Dashboard — Quick Start
-==========================
+CLE3 PT Dashboard
+=================
 
-FIRST TIME SETUP (do this once)
---------------------------------
-1. Unzip this folder anywhere on your computer (e.g. Desktop or Documents).
-2. Double-click setup.bat and let it run (~2-3 minutes).
-   - It installs Python packages and downloads the browser engine.
-   - It creates a "PT Dashboard" shortcut on your Desktop.
-3. Done. Use the Desktop shortcut from now on.
+First-time setup (each machine, one time only):
+  1. Double-click setup.bat
+  2. Wait for it to finish (installs Python packages + browser, ~2 min)
 
-DAILY USE
----------
-1. Double-click "PT Dashboard" on your Desktop.
-2. Enter the shift date (defaults to today) and click Fetch.
-3. The first Fetch will open a browser for your FCLM login (Midway).
-   After logging in once, future fetches run silently — no visible browser.
+Every day:
+  1. Double-click run.bat
+  2. Firefox opens automatically at http://localhost:5050
+  3. A Chromium window may pop up briefly for FCLM login - click through it once
 
-CONFIGURE FOR YOUR FC
-----------------------
-Open config.json in Notepad and edit:
-  - "warehouse_id"  — your FC code (e.g. "CMH2", "IND9")
-  - "process_id"    — your FC's stow process ID (find it in the FCLM URL)
-  - "pt_target"     — your PT% goal (default 84)
+Updates:
+  The dashboard checks for updates automatically every time you run run.bat.
+  When the AM pushes an update, you will get it the next time you open the app.
+  Your data (history, actions) is never affected by updates.
 
-TABS
-----
-- AM Rankings       — ranked list of managers by team PT%
-- Flagged Associates — associates below the PT target, grouped by manager
-  - Click a name → opens their FCLM time card
-  - Right-click   → view history or add a note
-- Week over Week    — compare two dates side by side
-
-QUESTIONS / ISSUES
-------------------
-Contact: neszbeqi (CLE3)
+Notes:
+  - Keep the terminal window open while using the dashboard (closing it stops the server)
+  - The dashboard auto-refreshes every 3 minutes from FCLM
+  - Night shift = 6 PM - 6 AM, Day shift = 6 AM - 6 PM
+  - PT threshold: green >= 88%, yellow 84-88%, red < 84%
