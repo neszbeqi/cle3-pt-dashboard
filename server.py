@@ -16,7 +16,7 @@ PYTHON  = sys.executable
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False
 
-# ── Cache ─────────────────────────────────────────────────────────────────────
+# â”€â”€ Cache â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 _cache      = {}
 _cache_lock = threading.Lock()
 
@@ -36,7 +36,7 @@ def cache_get(key):
             return e['data'], e['ts']
     return None, None
 
-# ── SSE ───────────────────────────────────────────────────────────────────────
+# â”€â”€ SSE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 _sse_clients = []
 _sse_lock    = threading.Lock()
 
@@ -50,10 +50,12 @@ def push(event_type, payload):
         for q in dead:
             _sse_clients.remove(q)
 
-# ── Scrape state ──────────────────────────────────────────────────────────────
+# â”€â”€ Scrape state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 _scrape_lock   = threading.Lock()
 _scrape_status = {'msg': 'Not yet fetched', 'last_ok': None, 'error': '', 'step': '', 'need_login': False}
 _current_shift = 'night'
+_departed      = {}   # {badge: {**aa_data, departed_at, shift}}
+_departed_lock = threading.Lock()
 
 def _current_date():
     now = datetime.now()
@@ -222,6 +224,7 @@ def _apply_tc_overlay(shift, date_str):
                 a['tc_pt_pct']    = tc['pt_pct']
                 a['tc_total_min'] = tc.get('total_min',    a.get('total', 0) * 60)
                 a['tc_idle_min']  = tc.get('adj_idle_min', a.get('inferred', 0) * 60)
+                a['tc_break_data'] = tc.get('break_data')
 
     from engine import enrich, save_snapshot
     enriched = enrich(data, shift, date_str)
@@ -240,7 +243,7 @@ def do_scrape():
         return
     try:
         # Auto-detect shift from current time so the server doesn't need a restart
-        # when crossing the 18:00 (day→night) or 06:00 (night→day) boundary.
+        # when crossing the 18:00 (dayâ†’night) or 06:00 (nightâ†’day) boundary.
         h = datetime.now().hour
         auto_shift = 'night' if (h >= 18 or h < 6) else 'day'
         if auto_shift != _current_shift:
@@ -249,7 +252,7 @@ def do_scrape():
         shift    = _current_shift
         date_str = _current_date()
 
-        # SCC runs in background only — does not block PT data display
+        # SCC runs in background only â€” does not block PT data display
         scc_data, scc_ts = cache_get('scc')
         scc_age = (datetime.now() - scc_ts).total_seconds() if scc_ts else 9999
         if scc_data is None or scc_age > 900:
@@ -270,7 +273,7 @@ def do_scrape():
         else:
             err = result.get('error', result) if isinstance(result, dict) else result
             need_login = isinstance(result, dict) and result.get('need_login', False)
-            _scrape_status['msg']        = 'Login required — click Login FCLM' if need_login else f'FCLM error: {err}'
+            _scrape_status['msg']        = 'Login required â€” click Login FCLM' if need_login else f'FCLM error: {err}'
             _scrape_status['error']      = str(err)
             _scrape_status['need_login'] = need_login
             return
@@ -322,6 +325,7 @@ def do_scrape():
                     a['tc_pt_pct']    = tc['pt_pct']
                     a['tc_total_min'] = tc.get('total_min',    a.get('total', 0) * 60)
                     a['tc_idle_min']  = tc.get('adj_idle_min', a.get('inferred', 0) * 60)
+                    a['tc_break_data'] = tc.get('break_data')
 
         # Launch timecard batch in background if not already running
         if not _tc_bg_running.is_set():
@@ -333,10 +337,43 @@ def do_scrape():
             ).start()
 
         # Step 4: Enrich and cache
+        prev_data, _ = cache_get(f'data_{shift}')
         enriched = enrich(associates, shift, date_str)
+
+        # Track AAs who were flagged but no longer clocked in / at a station
+        curr_badges = {a.get('badge') for a in enriched}
+        now_iso     = datetime.now().isoformat()
+        with _departed_lock:
+            # Purge entries from a different shift
+            for b in list(_departed.keys()):
+                if _departed[b].get('shift') != shift:
+                    del _departed[b]
+            # Remove anyone who came back
+            for b in list(_departed.keys()):
+                if b in curr_badges:
+                    del _departed[b]
+            # Add newly-departed flagged AAs
+            if prev_data:
+                prev_badges = {a.get('badge') for a in prev_data}
+                for a in (prev_data or []):
+                    badge = a.get('badge')
+                    if badge and a.get('flagged') and badge not in curr_badges and badge not in _departed:
+                        _departed[badge] = {**a, 'departed_at': now_iso, 'shift': shift}
+
         cache_set(f'data_{shift}', enriched)
+        # Persist to disk so restarts always have something to show
+        try:
+            _last_good = os.path.join(APP_DIR, 'data', f'last_good_{shift}.json')
+            os.makedirs(os.path.dirname(_last_good), exist_ok=True)
+            with open(_last_good, 'w', encoding='utf-8') as _lf:
+                import json as _json
+                _json.dump({'associates': enriched, 'shift': shift, 'date': date_str,
+                            'updated': datetime.now().isoformat()}, _lf)
+        except Exception:
+            pass
         save_snapshot(enriched, shift, date_str)
-        github_sync.push_live_data(enriched, shift, date_str)
+        dep_snapshot = _departed_snapshot(shift)
+        github_sync.push_live_data(enriched, shift, date_str, departed=dep_snapshot)
 
         flagged  = [a for a in enriched if a.get('flagged')]
         critical = [a for a in enriched if a.get('status') == 'below']
@@ -373,7 +410,24 @@ def _bg_loop():
                 pass
         time.sleep(180)
 
-# ── Routes ─────────────────────────────────────────────────────────────────────
+# â”€â”€ Routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+def _departed_snapshot(shift=None):
+    """Return departed list with gone_min, filtered to current shift."""
+    now = datetime.now()
+    result = []
+    with _departed_lock:
+        for badge, a in _departed.items():
+            if shift and a.get('shift') != shift:
+                continue
+            try:
+                dep_dt   = datetime.fromisoformat(a['departed_at'])
+                gone_min = int((now - dep_dt).total_seconds() / 60)
+            except Exception:
+                gone_min = 0
+            result.append({**a, 'gone_min': gone_min, 'likely_gone': gone_min >= 60})
+    result.sort(key=lambda x: x['gone_min'])
+    return result
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -400,11 +454,23 @@ def get_data():
     floor    = request.args.get('floor', 'all')
     data, ts = cache_get(f'data_{shift}')
     if data is None:
+        # Try last-good file so restarts/login gaps show stale data instead of blank
+        _last_good_path = os.path.join(APP_DIR, 'data', f'last_good_{shift}.json')
+        if os.path.exists(_last_good_path):
+            try:
+                with open(_last_good_path, 'r', encoding='utf-8') as _lf:
+                    _lg = json.load(_lf)
+                cache_set(f'data_{shift}', _lg.get('associates', []))
+                data, ts = cache_get(f'data_{shift}')
+            except Exception:
+                pass
+        if data is None:
+            threading.Thread(target=do_scrape, daemon=True).start()
+            return jsonify({'ok': False, 'associates': [], 'summary': {},
+                            'msg': _scrape_status.get('msg', 'Fetching data...'),
+                            'error': _scrape_status.get('error', ''),
+                            'need_login': _scrape_status.get('need_login', False)})
         threading.Thread(target=do_scrape, daemon=True).start()
-        return jsonify({'ok': False, 'associates': [], 'summary': {},
-                        'msg': _scrape_status.get('msg', 'Fetching data...'),
-                        'error': _scrape_status.get('error', ''),
-                        'need_login': _scrape_status.get('need_login', False)})
     result = data
     if floor != 'all':
         try:
@@ -414,7 +480,13 @@ def get_data():
     return jsonify({'ok': True, 'associates': result, 'summary': floor_summary(data),
                     'floors': sorted(set(a.get('floor', 0) for a in data if a.get('floor', 0) > 0)),
                     'updated': ts.isoformat() if ts else None,
-                    'shift': shift, 'date': _current_date(), 'count': len(data)})
+                    'shift': shift, 'date': _current_date(), 'count': len(data),
+                    'departed': _departed_snapshot(shift)})
+
+@app.route('/api/departed')
+def get_departed():
+    shift = request.args.get('shift', _current_shift)
+    return jsonify(_departed_snapshot(shift))
 
 @app.route('/api/report')
 def senior_report():
@@ -438,7 +510,7 @@ def senior_report():
         except (ValueError, TypeError):
             continue
         base  = (stn_int // 10) * 10          # e.g. 2319 -> 2310
-        label = f'{base}–{base + 9}'     # e.g. '2310-2319'
+        label = f'{base}-{base + 9}'     # e.g. '2310-2319'
         if label not in groups:
             groups[label] = {'total': 0, 'flagged': 0, 'floor': aa.get('floor', 0), 'pts': [], 'base': base}
         groups[label]['total'] += 1
@@ -641,7 +713,7 @@ if __name__ == '__main__':
     _cfg_path = os.path.join(APP_DIR, 'agent_config.json')
     if os.path.exists(_cfg_path):
         try:
-            with open(_cfg_path, 'r', encoding='utf-8') as _f:
+            with open(_cfg_path, 'r', encoding='utf-8-sig') as _f:
                 _cfg = json.load(_f)
             github_sync.configure(_cfg.get('github_token',''), _cfg.get('github_repo',''))
             if github_sync.ready():
