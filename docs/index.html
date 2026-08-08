@@ -978,8 +978,7 @@ async function pushActionToGitHub(entry) {
     const d   = await r.json();
     const sha = d.sha;
     let existing = [];
-    try { existing = JSON.parse(atob(d.content.replace(/
-/g,''))); } catch {}
+    try { existing = JSON.parse(atob(d.content.split('\n').join(''))); } catch {}
     if (!Array.isArray(existing)) existing = [];
     existing.push(entry);
 
