@@ -276,3 +276,76 @@ td { padding: 9px 14px; vertical-align: middle; }
   font-size: 0.9rem;
 }
 .login-banner a { color: #c87000; font-weight: 600; }
+
+/* Departed tab */
+.dep-list { display: flex; flex-direction: column; gap: 10px; }
+.dep-card { background: var(--white); border: 1px solid var(--border); border-left: 5px solid #94a3b8;
+            border-radius: 10px; padding: 14px 18px; display: flex; align-items: center;
+            justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.dep-card.dep-likely { border-left-color: var(--below); background: #fef2f2; }
+.dep-card.dep-watch  { border-left-color: #d97706;      background: #fffbeb; }
+.dep-info { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.dep-name { font-size: 15px; font-weight: 700; }
+.dep-loc  { font-size: 12px; color: var(--txt-2); }
+.dep-pt   { font-size: 12px; font-weight: 600; margin-top: 2px; }
+.dep-time { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.dep-gone-lbl { font-size: 13px; font-weight: 700; color: var(--txt-2); }
+.dep-status   { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+                padding: 2px 8px; border-radius: 4px; }
+.dep-status.dep-likely { background: var(--below); color: white; }
+.dep-status.dep-watch  { background: #d97706; color: white; }
+.dep-status.dep-may    { background: #e2e8f0; color: var(--txt-2); }
+.dep-btns { display: flex; gap: 6px; align-items: center; }
+.dep-btns a { font-size: 12px; font-weight: 600; color: var(--navy); text-decoration: none;
+              border: 1px solid var(--border); border-radius: 5px; padding: 4px 10px;
+              background: var(--white); white-space: nowrap; }
+.dep-btns a:hover { background: var(--navy); color: white; border-color: var(--navy); }
+
+/* ── Break compliance tab ──────────────────────────────────────────────── */
+.nav-badge-warn { background: #d97706; }
+
+.brk-header     { display: flex; align-items: center; justify-content: space-between;
+                  padding: 10px 0 14px; flex-wrap: wrap; gap: 8px; }
+.brk-summary    { font-size: 14px; font-weight: 700; color: var(--txt); }
+.brk-legend     { display: flex; gap: 8px; align-items: center; }
+.brk-pill       { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 4px; }
+.brk-pill.brk-flag { background: #fef2f2; border: 1px solid #fca5a5; color: #b91c1c; }
+.brk-pill.brk-ok   { background: #f0fdf4; border: 1px solid #86efac; color: #15803d; }
+
+.brk-section-lbl { font-size: 11px; font-weight: 700; text-transform: uppercase;
+                   letter-spacing: .5px; color: var(--txt-2); padding: 8px 0 4px; }
+.brk-clean-wrap  { margin-top: 14px; }
+.brk-clean-wrap > summary { cursor: pointer; list-style: none; }
+.brk-clean-wrap > summary::-webkit-details-marker { display: none; }
+.brk-clean-lbl   { display: inline-block; cursor: pointer; }
+
+.brk-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+
+.brk-card       { background: var(--white); border: 1px solid var(--border);
+                  border-left: 5px solid #94a3b8;
+                  border-radius: 10px; padding: 14px 18px; }
+.brk-card-viol  { border-left-color: #dc2626; background: #fff8f8; }
+
+.brk-card-hdr   { display: flex; align-items: flex-start; justify-content: space-between;
+                  margin-bottom: 10px; gap: 12px; }
+.brk-name-wrap  { display: flex; flex-direction: column; gap: 2px; }
+.brk-name       { font-size: 15px; font-weight: 700; }
+.brk-meta       { font-size: 12px; color: var(--txt-2); }
+.brk-tc-link    { font-size: 12px; font-weight: 600; color: var(--navy);
+                  text-decoration: none; border: 1px solid var(--border);
+                  border-radius: 5px; padding: 4px 10px; background: var(--white);
+                  white-space: nowrap; }
+.brk-tc-link:hover { background: var(--navy); color: white; border-color: var(--navy); }
+
+.brk-table      { width: 100%; border-collapse: collapse; font-size: 12px; }
+.brk-table thead th { text-align: left; padding: 4px 8px; color: var(--txt-2);
+                      font-weight: 600; font-size: 11px; border-bottom: 1px solid var(--border); }
+.brk-table tbody td { padding: 5px 8px; border-bottom: 1px solid var(--bg); }
+.brk-table tbody tr:last-child td { border-bottom: none; }
+
+.brk-event  { font-weight: 600; color: var(--txt); }
+.brk-time   { color: var(--txt-2); }
+.brk-dur    { color: var(--txt-2); }
+.brk-gap    { font-weight: 700; }
+.brk-gap-flag { color: #dc2626; }
+.brk-gap-ok   { color: #16a34a; }
