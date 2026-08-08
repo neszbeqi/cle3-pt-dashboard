@@ -284,6 +284,29 @@ td { padding: 9px 14px; vertical-align: middle; }
 }
 .login-banner a { color: #c87000; font-weight: 600; }
 
+
+/* Departed tab */
+.dep-list { display: flex; flex-direction: column; gap: 10px; }
+.dep-card { background: var(--white); border: 1px solid var(--border); border-left: 5px solid #94a3b8;
+            border-radius: 10px; padding: 14px 18px; display: flex; align-items: center;
+            justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.dep-card.dep-likely { border-left-color: var(--below); background: #fef2f2; }
+.dep-card.dep-watch  { border-left-color: #d97706;      background: #fffbeb; }
+.dep-info { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.dep-name { font-size: 15px; font-weight: 700; }
+.dep-loc  { font-size: 12px; color: var(--txt-2); }
+.dep-pt   { font-size: 12px; font-weight: 600; margin-top: 2px; }
+.dep-time { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.dep-gone-lbl { font-size: 13px; font-weight: 700; color: var(--txt-2); }
+.dep-status   { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+                padding: 2px 8px; border-radius: 4px; }
+.dep-status.dep-likely { background: var(--below); color: white; }
+.dep-status.dep-watch  { background: #d97706; color: white; }
+.dep-status.dep-may    { background: #e2e8f0; color: var(--txt-2); }
+.dep-btns a { font-size: 12px; font-weight: 600; color: var(--navy); text-decoration: none;
+              border: 1px solid var(--border); border-radius: 5px; padding: 4px 10px;
+              background: var(--white); white-space: nowrap; }
+.dep-btns a:hover { background: var(--navy); color: white; border-color: var(--navy); }
 /* Portal-only extras */
 #snapshot-badge { font-size:11px; color:rgba(255,255,255,.55); }
 #offline-bar { background:#fff3cd; border-left:4px solid #f0ad4e; color:#7a5800;
@@ -326,6 +349,9 @@ td { padding: 9px 14px; vertical-align: middle; }
   <button class="tab-btn" data-tab="actions">
     Actions <span id="badge-actions" class="nav-badge hidden">0</span>
   </button>
+  <button class="tab-btn" data-tab="departed">
+    Departed <span id="badge-departed" class="nav-badge hidden">0</span>
+  </button>
 </nav>
 
 <div id="tab-floor" class="tab-pane">
@@ -358,6 +384,10 @@ td { padding: 9px 14px; vertical-align: middle; }
 
 <div id="tab-actions" class="tab-pane hidden">
   <div id="actions-content"><div class="empty-state">No actions logged this shift</div></div>
+</div>
+
+<div id="tab-departed" class="tab-pane hidden">
+  <div id="departed-content"><div class="empty-state">No departed associates tracked yet.</div></div>
 </div>
 
 <div id="modal" class="modal hidden">
@@ -418,6 +448,7 @@ let _redirectChecked = false;
 const S = {
   associates: [],
   actions:    [],
+  departed:   [],
   shift:      'night',
   floor:      'all',
   activeTab:  'floor',
@@ -575,6 +606,7 @@ async function loadData() {
 
   S.associates = liveRes.associates || [];
   S.actions    = merged;
+  S.departed   = liveRes.departed || [];
   _snapshotTs  = liveRes.updated || null;
 
   // Show offline bar
@@ -600,6 +632,8 @@ function updateBadges() {
   if (bf) { bf.textContent = flagged; bf.classList.toggle('hidden', !flagged); }
   const ba = document.getElementById('badge-actions');
   if (ba) { ba.textContent = S.actions.length; ba.classList.toggle('hidden', !S.actions.length); }
+  const bd = document.getElementById('badge-departed');
+  if (bd) { bd.textContent = S.departed.length; bd.classList.toggle('hidden', !S.departed.length); }
 }
 
 // ── Floor view ─────────────────────────────────────────────────────────────────
@@ -863,7 +897,46 @@ function renderActiveTab() {
   if      (S.activeTab === 'floor')   renderFloor();
   else if (S.activeTab === 'flagged') renderFlagged();
   else if (S.activeTab === 'report')  renderReport();
-  else if (S.activeTab === 'actions') renderActions();
+  else if (S.activeTab === 'actions')  renderActions();
+  else if (S.activeTab === 'departed') renderDeparted();
+}
+
+// ── Departed tab ──────────────────────────────────────────────────────────────
+function renderDeparted() {
+  const el = document.getElementById('departed-content');
+  if (!el) return;
+  const list = [...S.departed].sort((a,b) => (b.gone_min||0) - (a.gone_min||0));
+  if (!list.length) {
+    el.innerHTML = '<div class="empty-state">No departed associates this shift — everyone is still clocked in.</div>';
+    return;
+  }
+  el.innerHTML = '<div style="margin-bottom:12px;font-size:12px;color:var(--txt-2)">AAs who were below the PT threshold and are no longer clocked in at a station. After 60 minutes away they are likely not returning this shift.</div><div class="dep-list">' + list.map(depCard).join('') + '</div>';
+}
+
+function depCard(a) {
+  const goneMin  = a.gone_min || 0;
+  const likely   = a.likely_gone;
+  const st       = ptSt(a.pt_pct);
+  const goneStr  = goneMin < 60
+    ? goneMin + 'm ago'
+    : Math.floor(goneMin/60) + 'h ' + (goneMin%60) + 'm ago';
+  const statusCls  = likely ? 'dep-likely' : (goneMin >= 30 ? 'dep-watch' : 'dep-may');
+  const statusText = likely ? '⚠ Likely not returning' : (goneMin >= 30 ? 'Watch — 30+ min out' : 'May still return');
+  const cardCls    = likely ? 'dep-likely' : (goneMin >= 30 ? 'dep-watch' : '');
+  const fcUrl      = FCLM_TC(a.badge||'');
+  return '<div class="dep-card ' + cardCls + '">' +
+    '<div class="dep-info">' +
+      '<span class="dep-name">' + esc(a.name) + '</span>' +
+      '<span class="dep-loc">Station ' + esc(a.station||'–') + ' · Floor ' + esc(a.floor||'?') + ' · ' + esc(a.manager||'–') + '</span>' +
+      '<span class="dep-pt pt-' + st + '">Last PT: ' + fmt(a.pt_pct) +
+        ((a.consecutive_low||0)>=2 ? ' · ' + a.consecutive_low + ' shifts below' : '') + '</span>' +
+    '</div>' +
+    '<div class="dep-time">' +
+      '<span class="dep-gone-lbl">Left ' + goneStr + '</span>' +
+      '<span class="dep-status ' + statusCls + '">' + statusText + '</span>' +
+    '</div>' +
+    '<div class="dep-btns"><a href="' + fcUrl + '" target="_blank">Timecard ↗</a></div>' +
+  '</div>';
 }
 
 // ── Modal ──────────────────────────────────────────────────────────────────────
