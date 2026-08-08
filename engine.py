@@ -253,6 +253,152 @@ def parse_timecard_pt(rows, shift="night", is_flex=False):
     }
 
 
+
+def parse_break_compliance(rows, shift="night", threshold_min=7):
+    """
+    Detect break compliance violations from FCLM timecard rows.
+
+    Returns dict or None if no on-clock data found:
+      shift_start_gap:     float|None  -- min from first clock-in to first stow
+      shift_start_flagged: bool
+      breaks: list of {break_num, break_start, break_end, break_dur_min,
+                        pre_gap_min, post_gap_min, pre_flagged, post_flagged}
+      any_violation: bool
+
+    Break = off-clock gap between consecutive OnClock/Paid segments (10-90 min).
+    Pre-gap  = break_start - end of last stow before break.
+    Post-gap = start of first stow after break - break_end.
+    """
+    import re as _re
+    from datetime import datetime as _dt, timedelta as _td
+
+    def _parse_dt(s):
+        if not s:
+            return None
+        m = _re.match(r"(\d{1,2})/(\d{1,2})-(\d{2}):(\d{2})(?::(\d{2}))?", s.strip())
+        if not m:
+            return None
+        mo, day = int(m.group(1)), int(m.group(2))
+        h, mn   = int(m.group(3)), int(m.group(4))
+        sec     = int(m.group(5) or 0)
+        year    = _dt.now().year
+        try:
+            return _dt(year, mo, day, h, mn, sec)
+        except ValueError:
+            return None
+
+    now = _dt.now()
+
+    def _fix_midnight(dt):
+        if dt is None:
+            return dt
+        # Night shift: PM timestamp seen after midnight belongs to previous day
+        if shift == "night" and now.hour < 6 and dt.hour >= 18:
+            return dt - _td(days=1)
+        return dt
+
+    def _fmt(dt):
+        return dt.strftime("%H:%M") if dt else "--"
+
+    on_clock_segs = []   # (start, end) for each OnClock/Paid block
+    stow_acts     = []   # (start, end) for each stow activity
+
+    for row in rows:
+        cells = [c.get("text", "") for c in row.get("cells", [])]
+        n     = len(cells)
+        title = start = end = None
+
+        # Preferred 6-cell: [trackingType][name][start][end][dur][holder]
+        if n >= 5:
+            cs = _parse_dt(cells[2])
+            if cs:
+                title = cells[1].strip()
+                start = _fix_midnight(cs)
+                end   = _fix_midnight(_parse_dt(cells[3]))
+
+        # Legacy 4-cell: [name][start][end][dur]
+        if start is None and n >= 4:
+            cs = _parse_dt(cells[1])
+            if cs:
+                title = cells[0].strip()
+                start = _fix_midnight(cs)
+                end   = _fix_midnight(_parse_dt(cells[2]))
+
+        if not title or start is None:
+            continue
+        if not end:
+            end = now
+        if (end - start).total_seconds() <= 0:
+            continue
+
+        tl = title.lower()
+        if "onclock/paid" in tl or tl == "on clock/paid":
+            on_clock_segs.append((start, end))
+        if "stow" in tl:
+            stow_acts.append((start, end))
+
+    if not on_clock_segs or not stow_acts:
+        return None
+
+    on_clock_segs.sort(key=lambda x: x[0])
+    stow_acts.sort(key=lambda x: x[0])
+
+    # Shift start: clock-in to first stow
+    first_cin       = on_clock_segs[0][0]
+    first_stow_s    = stow_acts[0][0]
+    ss_gap_raw      = (first_stow_s - first_cin).total_seconds() / 60.0
+    shift_start_gap = round(ss_gap_raw, 1) if 0 <= ss_gap_raw <= 120 else None
+
+    # Off-clock breaks: gaps between consecutive OnClock/Paid segments
+    breaks = []
+    for i in range(len(on_clock_segs) - 1):
+        seg_end   = on_clock_segs[i][1]
+        seg_start = on_clock_segs[i + 1][0]
+        gap_min   = (seg_start - seg_end).total_seconds() / 60.0
+        if not (10 <= gap_min <= 90):
+            continue   # skip sub-10-min noise and extended absences
+
+        # Last stow ending at or before break start (small tolerance)
+        pre_gap = None
+        for (ss, se) in reversed(stow_acts):
+            if se <= seg_end + _td(minutes=3):
+                pre_gap = (seg_end - se).total_seconds() / 60.0
+                break
+
+        # First stow starting at or after break end (small tolerance)
+        post_gap = None
+        for (ss, se) in stow_acts:
+            if ss >= seg_start - _td(minutes=3):
+                post_gap = (ss - seg_start).total_seconds() / 60.0
+                break
+
+        pre_flag  = pre_gap  is not None and pre_gap  > threshold_min
+        post_flag = post_gap is not None and post_gap > threshold_min
+
+        breaks.append({
+            "break_num":     len(breaks) + 1,
+            "break_start":   _fmt(seg_end),
+            "break_end":     _fmt(seg_start),
+            "break_dur_min": round(gap_min, 1),
+            "pre_gap_min":   round(pre_gap,  1) if pre_gap  is not None else None,
+            "post_gap_min":  round(post_gap, 1) if post_gap is not None else None,
+            "pre_flagged":   pre_flag,
+            "post_flagged":  post_flag,
+        })
+
+    any_v = (
+        (shift_start_gap is not None and shift_start_gap > threshold_min) or
+        any(b["pre_flagged"] or b["post_flagged"] for b in breaks)
+    )
+
+    return {
+        "shift_start_gap":     shift_start_gap,
+        "shift_start_flagged": shift_start_gap is not None and shift_start_gap > threshold_min,
+        "breaks":              breaks,
+        "any_violation":       any_v,
+    }
+
+
 def flag_status(pt):
     """Return status string based on PT%."""
     if pt is None:      return 'unknown'
@@ -360,6 +506,7 @@ def enrich(associates, shift, date_str):
             'last_action':     last_action,
             'consecutive_low': consec,
             'flagged':         status in ('below', 'watch'),
+            'break_data':      a.get('tc_break_data'),
         })
 
     db.close()
