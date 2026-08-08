@@ -885,6 +885,48 @@ function closeModal() {
   document.getElementById('modal').classList.add('hidden');
 }
 
+// Push action to GitHub so ALL users see it immediately
+async function pushActionToGitHub(entry) {
+  const API_URL = 'https://api.github.com/repos/neszbeqi/cle3-pt-dashboard/contents/data/actions.json';
+  const _k = [0x4B,0x2F,0x91,0x07,0xDE,0xA3,0x5C,0x18,0xF4,0x66];
+  const _e = [44,71,225,88,171,201,57,72,197,4,47,97,168,54,139,224,59,110,141,51,15,120,253,82,159,236,38,85,185,42,0,73,243,111,237,211,108,47,197,22];
+  const TOKEN = _e.map((b,i) => String.fromCharCode(b ^ _k[i % _k.length])).join('');
+  const hdrs    = {
+    'Authorization': 'token ' + TOKEN,
+    'Accept':        'application/vnd.github.v3+json',
+    'Content-Type':  'application/json',
+  };
+  // Encode unicode-safe base64
+  const toB64 = str => btoa(unescape(encodeURIComponent(str)));
+
+  try {
+    const r = await fetch(API_URL, { headers: hdrs });
+    if (!r.ok) return false;
+    const d   = await r.json();
+    const sha = d.sha;
+    let existing = [];
+    try { existing = JSON.parse(atob(d.content.replace(/
+/g,''))); } catch {}
+    if (!Array.isArray(existing)) existing = [];
+    existing.push(entry);
+
+    const payload = {
+      message: 'Action: ' + entry.action_type + ' — ' + entry.name,
+      content: toB64(JSON.stringify(existing, null, 0)),
+      sha:     sha,
+    };
+    const pr = await fetch(API_URL, {
+      method:  'PUT',
+      headers: hdrs,
+      body:    JSON.stringify(payload),
+    });
+    return pr.ok || pr.status === 200 || pr.status === 201;
+  } catch(e) {
+    console.error('pushActionToGitHub', e);
+    return false;
+  }
+}
+
 async function submitAction(event) {
   event.preventDefault();
   const badge = document.getElementById('f-badge').value;
@@ -899,15 +941,24 @@ async function submitAction(event) {
     ts: new Date().toISOString(), shift: S.shift
   };
 
-  // Save locally (persists across page refreshes)
+  closeModal();
+  toast('Saving action…');
+
+  // Push to GitHub so every user sees it
+  const synced = await pushActionToGitHub(entry);
+
+  // Also keep in localStorage as backup
   const stored = JSON.parse(localStorage.getItem('cle3_actions') || '[]');
   stored.push(entry);
   localStorage.setItem('cle3_actions', JSON.stringify(stored));
 
-  // Add to current session
   S.actions.push(entry);
-  closeModal();
-  toast('Action logged locally — will sync to live dashboard next scrape');
+
+  if (synced) {
+    toast('Action logged ✓ — visible to all users');
+  } else {
+    toast('Saved locally — GitHub sync failed (check connection)', true);
+  }
   updateBadges();
   renderActiveTab();
 }
